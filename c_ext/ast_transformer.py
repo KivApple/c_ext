@@ -178,6 +178,8 @@ class ASTTransformer(c_ast.NodeVisitor):
     def visit_FuncCall(self, node):
         assert isinstance(node, c_ast.FuncCall)
         args = list()
-        for arg in node.args.exprs:
-            args.append(self.visit(arg))
-        return CallExpression(self.visit(node.name), args, node)
+        if node.args is not None:
+            for arg in node.args.exprs:
+                args.append(self.visit(arg))
+        func = self.visit(node.name)
+        return CallExpression(func, args, node)

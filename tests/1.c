@@ -9,11 +9,12 @@ struct B: A {
 };
 
 struct B a;
-struct A *b = &a;
+struct B *b = &a;
 
 int f(struct A*);
 
 int main() {
     int (*g)(struct B*) = f;
+    b->test();
     return 0;
 }

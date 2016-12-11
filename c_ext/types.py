@@ -97,7 +97,7 @@ class StructTypeInfo(TypeInfo):
                 type_info = type.type
                 if isinstance(type_info, FuncTypeInfo):
                     assert self.name is not None
-                    full_name = '%s_%s' % (self.name, name)
+                    full_name, this_type_info = self.method_name(name)
                     func_type_decl = type_info.to_ast(False)
                     func_type_decl.type.declname = full_name
                     func_type_decl.args.params.insert(0,
@@ -110,6 +110,13 @@ class StructTypeInfo(TypeInfo):
                     methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
                                                     func_type_decl, None, None))
         return methods_decls
+
+    def method_name(self, name):
+        if name in self.scope.symbols:
+            return ('%s_%s' % (self.name, name)), PtrTypeInfo(self)
+        if self.parent is not None:
+            return self.parent.method_name(name)
+        return None, None
 
     def safe_cast(self, expression, type_info):
         return None

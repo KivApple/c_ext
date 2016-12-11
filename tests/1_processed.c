@@ -9,11 +9,12 @@ struct B
   int b;
 };
 struct B a;
-struct A *b = (struct A *) (& a);
+struct B *b = & a;
 int f(struct A *);
 int main()
 {
   int (*g)(struct B *) = (int (struct B *) *) f;
+  A_test((struct A *) b);
   return 0;
 }
 
