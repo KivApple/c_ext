@@ -38,6 +38,7 @@ class UnaryExpression(Expression):
         self.op = op
         self.operand = operand
         operand_type_info = operand.type_info
+        ast_node.expr = operand.ast_node
         if op == '&':
             Expression.__init__(self, PtrTypeInfo(operand_type_info), ast_node)
         elif op == '*':
@@ -57,8 +58,14 @@ class BinaryExpression(Expression):
         self.right = right
         left_type_info = left.type_info
         self.right = TypeInfo.make_safe_cast(right, left_type_info)
-        assert isinstance(self.right, Expression)
-        ast_node.right = self.right.ast_node
+        if self.right is None:
+            self.right = right # Warning
+        if isinstance(ast_node, c_ast.Assignment):
+            ast_node.lvalue = self.left.ast_node
+            ast_node.rvalue = self.right.ast_node
+        else:
+            ast_node.left = self.left.ast_node
+            ast_node.right = self.right.ast_node
         right_type_info = right.type_info
         if op in ('==', '!=', '>', '<', '>=', '<='):
             Expression.__init__(self, ScalarTypeInfo('_Bool'), ast_node)
@@ -74,6 +81,9 @@ class TernaryExpression(Expression):
         self.cond = cond
         self.true_value = true_value
         self.false_value = false_value
+        ast_node.cond = self.cond.ast_node
+        ast_node.iftrue = self.true_value.ast_node
+        ast_node.iffalse = self.false_value.ast_node
         true_type_info = true_value.type_info
         false_type_info = false_value.type_info
         Expression.__init__(self, true_type_info, ast_node)
@@ -86,6 +96,7 @@ class CastExpression(Expression):
     def __init__(self, operand, type_info, ast_node=None):
         self.operand = operand
         self.type_info = type_info
+        ast_node.expr = operand.ast_node
         Expression.__init__(self, type_info, ast_node)
 
     def __str__(self):
@@ -96,6 +107,7 @@ class SubscriptExpression(Expression):
     def __init__(self, array, index, ast_node=None):
         self.array = array
         self.index = index
+        ast_node.name = array.ast_node
         assert isinstance(array.type_info, ArrayTypeInfo)
         Expression.__init__(self, array.type_info.base_type, ast_node)
 
@@ -108,6 +120,7 @@ class MemberExpression(Expression):
         self.value = value
         self.member_name = member_name
         self.type = type
+        ast_node.name = value.ast_node
         type_info = self.value.type_info
         if type == '->':
             assert isinstance(type_info, PtrTypeInfo)
@@ -119,6 +132,8 @@ class MemberExpression(Expression):
         assert type_info is not None
         if isinstance(type_info, VariableInfo):
             type_info = type_info.type
+            if not isinstance(type_info, FuncTypeInfo):
+                ast_node = self.struct_type_info.fix_member_access(ast_node)
         Expression.__init__(self, type_info, ast_node)
 
     def __str__(self):
@@ -129,6 +144,7 @@ class CallExpression(Expression):
     def __init__(self, value, args, ast_node=None):
         self.value = value
         self.args = args
+        ast_node.name = value.ast_node
         type_info = self.value.type_info
         if isinstance(type_info, PtrTypeInfo):
             type_info = type_info.base_type
@@ -142,9 +158,9 @@ class CallExpression(Expression):
             if dst_arg_type is None:
                 break
             casted = TypeInfo.make_safe_cast(args[i], dst_arg_type)
-            assert isinstance(casted, Expression)
-            if ast_node is not None:
-                ast_node.args.exprs[i] = casted.ast_node
+            if casted is None:
+                casted = args[i] # Warning
+            ast_node.args.exprs[i] = casted.ast_node
             i += 1
         if isinstance(value, MemberExpression):
             assert isinstance(value.struct_type_info, StructTypeInfo)

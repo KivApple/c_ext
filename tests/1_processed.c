@@ -7,6 +7,7 @@ struct A_VTable
 {
   void (*test3)(struct A *);
 };
+int () *A_c;
 void A_test1();
 void A_test2(struct A *);
 void A_test3(struct A *);
@@ -30,6 +31,7 @@ int main()
   A_test2((struct A *) b);
   b->__vtable__->test3((struct A *) b);
   A_test3((struct A *) (& a));
+  A_c();
   return 0;
 }
 

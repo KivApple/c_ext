@@ -68,6 +68,16 @@ class ParserImproved(pycparser.c_parser.CParser):
             coord=self._coord(p.lineno(2))
         )
 
+    def p_identifier(self, p):
+        """ identifier  : TYPEID DOUBLECOLON ID
+                        | ID DOUBLECOLON ID
+                        | ID
+        """
+        if len(p) == 4:
+            p[0] = c_ast.ID(p[3], self._coord(p.lineno(1)))
+        else:
+            p[0] = c_ast.ID(p[1], self._coord(p.lineno(1)))
+
     def error(self, p, msg=None):
         if p:
             self._parse_error(

@@ -48,8 +48,7 @@ class ScalarTypeInfo(TypeInfo):
 
     def to_ast(self, verbose=True):
         node = c_ast.IdentifierType(self.name.split(' '))
-        if self.quals:
-            node = c_ast.TypeDecl(None, self.quals, node)
+        node = c_ast.TypeDecl(None, self.quals, node)
         return node
 
 
@@ -87,6 +86,8 @@ class StructTypeInfo(TypeInfo):
                     self.has_vtable = True
             for decl in self.ast_node.decls:
                 if isinstance(decl, c_ast.Decl):
+                    if 'static' in decl.storage:
+                        continue
                     if isinstance(decl.type, c_ast.FuncDecl):
                         if ('virtual' in decl.storage):
                             self.has_vtable = True
@@ -101,8 +102,7 @@ class StructTypeInfo(TypeInfo):
                 )),
                 None, None
             ))
-        if self.quals:
-            node = c_ast.TypeDecl(None, self.quals, node, node.coord)
+        node = c_ast.TypeDecl(None, self.quals, node, node.coord)
         return node
 
     def make_methods_decls(self, vtable=False):
@@ -139,6 +139,15 @@ class StructTypeInfo(TypeInfo):
                         func_type_decl = c_ast.PtrDecl(list(), func_type_decl)
                         virtual_methods_decls.append(c_ast.Decl(name, list(), list(), list(),
                                                                 func_type_decl, None, None))
+                elif 'static' in symbol.storage:
+                    full_name = '%s_%s' % (self.name, name)
+                    type_decl = type_info.to_ast(False)
+                    tmp = type_decl
+                    while not isinstance(tmp, c_ast.TypeDecl):
+                        tmp = tmp.type
+                    tmp.declname = full_name
+                    methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
+                                                    type_decl, None, None))
         if self.parent is not None:
             virtual_methods_decls = self.parent.make_methods_decls(True) + virtual_methods_decls
         if (len(virtual_methods_decls) > 0) and not vtable:
@@ -153,7 +162,8 @@ class StructTypeInfo(TypeInfo):
         symbol = self.scope.symbols.get(expression.member_name)
         if symbol is not None:
             assert isinstance(symbol, VariableInfo)
-            assert isinstance(symbol.type, FuncTypeInfo)
+            if not isinstance(symbol.type, FuncTypeInfo):
+                return
             full_name = '%s_%s' % (self.name, expression.member_name)
             if ('virtual' not in symbol.storage) or (expression.type == '.'):
                 node.name = c_ast.ID(full_name)
@@ -174,6 +184,17 @@ class StructTypeInfo(TypeInfo):
                 node.args.exprs.insert(0, this_ptr.ast_node)
         elif self.parent is not None:
             self.parent.fix_method_call(node, expression)
+
+    def fix_member_access(self, node):
+        assert isinstance(node, c_ast.StructRef)
+        symbol = self.scope.symbols.get(node.field.name)
+        if symbol is not None:
+            if 'static' in symbol.storage:
+                full_name = '%s_%s' % (self.name, node.field.name)
+                return c_ast.ID(full_name)
+        elif self.parent is not None:
+            return self.parent.fix_member_access(node)
+        return node
 
     def safe_cast(self, expression, type_info):
         return None

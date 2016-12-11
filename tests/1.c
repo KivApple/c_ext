@@ -1,5 +1,6 @@
 struct A {
     int a;
+    static int (*c)();
 
     static void test1();
     void test2();
@@ -21,5 +22,6 @@ int main() {
     b->test2();
     b->test3();
     a.test3();
+    a.c();
     return 0;
 }

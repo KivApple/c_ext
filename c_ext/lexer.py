@@ -10,6 +10,8 @@ class LexerImproved(pycparser.c_parser.CLexer):
         self.keywords = tuple(self.keywords)
         self.tokens = list(self.tokens)
         self.tokens.append('VIRTUAL')
+        self.tokens.append('DOUBLECOLON')
         self.tokens = tuple(self.tokens)
+        self.t_DOUBLECOLON = '::'
         super(LexerImproved, self).__init__(error_func, on_lbrace_func, on_rbrace_func,
                  type_lookup_func)

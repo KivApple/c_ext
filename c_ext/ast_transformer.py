@@ -133,8 +133,10 @@ class ASTTransformer(c_ast.NodeVisitor):
             if node.init is not None:
                 init = self.visit(node.init)
                 init = TypeInfo.make_safe_cast(init, type_info)
-                assert isinstance(init, Expression)
-                node.init = init.ast_node
+                if init is not None:
+                    node.init = init.ast_node
+                else:
+                    pass # Warning
 
     def visit_Typedef(self, node):
         assert isinstance(node, c_ast.Typedef)
@@ -183,3 +185,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                 args.append(self.visit(arg))
         func = self.visit(node.name)
         return CallExpression(func, args, node)
+
+    def visit_Assignment(self, node):
+        assert isinstance(node, c_ast.Assignment)
+        return BinaryExpression(node.op, self.visit(node.lvalue), self.visit(node.rvalue), node)
