@@ -148,12 +148,7 @@ class CallExpression(Expression):
             i += 1
         if isinstance(value, MemberExpression):
             assert isinstance(value.struct_type_info, StructTypeInfo)
-            method_name, this_type_info = value.struct_type_info.method_name(value.member_name)
-            ast_node.name = c_ast.ID(method_name)
-            if this_type_info is not None:
-                if ast_node.args is None:
-                    ast_node.args = c_ast.ExprList(list())
-                ast_node.args.exprs.insert(0, TypeInfo.make_safe_cast(value.value, this_type_info).ast_node)
+            value.struct_type_info.fix_method_call(ast_node, value)
         Expression.__init__(self, type_info.return_type, ast_node)
 
     def __str__(self):

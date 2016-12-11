@@ -1,7 +1,9 @@
 struct A {
     int a;
 
-    void test();
+    static void test1();
+    void test2();
+    virtual void test3();
 };
 
 struct B: A {
@@ -15,6 +17,9 @@ int f(struct A*);
 
 int main() {
     int (*g)(struct B*) = f;
-    b->test();
+    b->test1();
+    b->test2();
+    b->test3();
+    a.test3();
     return 0;
 }
