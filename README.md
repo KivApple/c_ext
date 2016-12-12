@@ -14,6 +14,10 @@ Translator from extended C to normal C
 * appdirs
 * six
 
+## Installation
+
+    python setup.py install
+
 ## Features
 
 ### Struct inheritance
