@@ -5,6 +5,7 @@ typedef struct A {
     void construct();
     virtual void destroy();
     virtual void print_text(const char *fmt, ...) = 0;
+    static void test();
 } A;
 
 typedef struct B: A {
@@ -32,6 +33,10 @@ void (B::construct)() {
     printf("B::construct()\n");
 }
 
+void (A::test)() {
+    printf("Test!\n");
+}
+
 B b;
 A *b_ptr = &b;
 
@@ -39,5 +44,6 @@ int main() {
     b.construct();
     b_ptr->print_text("%s\n", "Hello world!");
     b_ptr->destroy();
+    A::test();
     return 0;
 }

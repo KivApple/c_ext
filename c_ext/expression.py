@@ -23,9 +23,22 @@ class ConstantExpression(Expression):
 
 class VariableExpression(Expression):
     def __init__(self, name, scope, ast_node=None):
-        self.name = name
+        if isinstance(name, tuple):
+            self.name = '::'.join(name)
+        else:
+            self.name = name
         self.scope = scope
-        var_info = scope.find_symbol(name)
+        var_info = None
+        if isinstance(name, tuple):
+            assert len(name) == 2
+            type_info = scope.find_symbol('struct %s' % name[0])
+            if isinstance(type_info, StructTypeInfo):
+                var_info = type_info.scope.find_symbol(name[1], True)
+                if isinstance(var_info, VariableInfo):
+                    if 'static' in var_info.storage:
+                        ast_node.name = '%s_%s' % (name[0], name[1])
+        else:
+            var_info = scope.find_symbol(name)
         if isinstance(var_info, VariableInfo):
             Expression.__init__(self, var_info.type, ast_node)
         else:

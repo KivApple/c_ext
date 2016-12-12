@@ -63,6 +63,12 @@ You can define methods inside structure.
         this->i = x;
     }
 
+    ...
+
+    struct C c;
+    c.construct();
+    c.some_virtual_method(10);
+
 Child inherits methods from parent, but you can override some.
 Also you can explicitly call parent method.
 
@@ -78,6 +84,18 @@ Also you can explicitly call parent method.
     void D::some_virtual_method(int x) {
         this->C::some_virtual_method(x * 2);
     }
+
+## Static struct members
+
+    struct E {
+        static int i;
+        static void f();
+    };
+
+    ...
+
+    E::i = 10;
+    E::test();
 
 ## Limitations
 
