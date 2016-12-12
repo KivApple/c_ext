@@ -93,7 +93,7 @@ method name in brackets in implementation:
 
     typedef struct A {
         void construct();
-    }
+    } A;
 
     void (A::construct)() {
         // Do something
