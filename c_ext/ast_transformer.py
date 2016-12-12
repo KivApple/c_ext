@@ -161,7 +161,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             node.type = type_info.to_ast(node.type.decls is not None)
         var_info = None
         if node.name is not None:
-            var_info = VariableInfo(node.name, type_info, node.storage)
+            var_info = VariableInfo(node.name, type_info, node.storage, coord=node.coord)
             self.scope.add_symbol(node.name, var_info)
             if node.init is not None:
                 init = self.visit(node.init)

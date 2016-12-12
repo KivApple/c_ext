@@ -12,11 +12,11 @@ struct B: A {
 };
 
 void A::construct() {
-
+    printf("A::construct()\n");
 }
 
 void A::destroy() {
-
+    printf("Object destroyed\n");
 }
 
 void B::print_text() {
@@ -24,7 +24,8 @@ void B::print_text() {
 }
 
 void B::construct() {
-
+    this->A::construct();
+    printf("B::construct()\n");
 }
 
 struct B b;

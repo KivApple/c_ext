@@ -76,7 +76,7 @@ class StructTypeInfo(TypeInfo):
         )
 
     def to_ast(self, verbose=True, node=None):
-        node = c_ast.Struct(self.name, list() if verbose else None)\
+        node = c_ast.Struct(self.name, list() if verbose else None, self.ast_node.coord if verbose else None)\
             if node is None else node
         if verbose and (self.scope is not None):
             if self.parent is not None:
@@ -141,7 +141,7 @@ class StructTypeInfo(TypeInfo):
                         func_type_decl.args = None
                     if symbol.init is None:
                         methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
-                                                        func_type_decl, None, None))
+                                                        func_type_decl, None, None, symbol.coord))
                     if virtual:
                         func_type_decl = c_ast.FuncDecl(
                             func_type_decl.args,
@@ -149,7 +149,7 @@ class StructTypeInfo(TypeInfo):
                         )
                         func_type_decl = c_ast.PtrDecl(list(), func_type_decl)
                         virtual_methods_decls.append(c_ast.Decl(name, list(), list(), list(),
-                                                                func_type_decl, None, None))
+                                                                func_type_decl, None, None, symbol.coord))
                 elif 'static' in symbol.storage:
                     full_name = '%s_%s' % (self.name, name)
                     type_decl = type_info.to_ast(False)
@@ -165,7 +165,7 @@ class StructTypeInfo(TypeInfo):
                     else:
                         tmp.declname = full_name
                     methods_decls.append(c_ast.Decl(full_name, list(), ['extern'], list(),
-                                                    type_decl, None, None))
+                                                    type_decl, None, None, symbol.coord))
         if self.parent is not None:
             virtual_methods_decls = self.parent.make_methods_decls(True) + virtual_methods_decls
         if (len(virtual_methods_decls) > 0) and not vtable:
@@ -173,7 +173,7 @@ class StructTypeInfo(TypeInfo):
             for decl in virtual_methods_decls:
                 virtual_decls[decl.name] = decl
             vtable_decl = c_ast.Struct('%s_VTable' % self.name, [decl for name, decl in iteritems(virtual_decls)])
-            vtable_decl = c_ast.Decl(None, list(), list(), list(), vtable_decl, None, None)
+            vtable_decl = c_ast.Decl(None, list(), list(), list(), vtable_decl, None, None, self.ast_node.coord)
             methods_decls.insert(0, vtable_decl)
         return methods_decls if not vtable else virtual_methods_decls
 
@@ -275,6 +275,19 @@ class StructTypeInfo(TypeInfo):
                                 else:
                                     vtable_values[key] = value.init.ast_node
             vtable_name = '%s_vtable' % self.name
+            i, j = 0, 0
+            while i < len(node.body.block_items):
+                n = node.body.block_items[i]
+                if isinstance(n, c_ast.FuncCall):
+                    if isinstance(n.name, c_ast.StructRef):
+                        if isinstance(n.name.name, c_ast.ID):
+                            if n.name.name.name == 'this':
+                                if isinstance(n.name.field, c_ast.ID):
+                                    if isinstance(n.name.field.name, tuple):
+                                        if len(n.name.field.name) == 2:
+                                            if n.name.field.name[1] == 'construct':
+                                                j = i + 1
+                i += 1
             node.body.block_items.insert(
                 0,
                 c_ast.Decl(
@@ -285,7 +298,7 @@ class StructTypeInfo(TypeInfo):
                 )
             )
             node.body.block_items.insert(
-                1,
+                j + 1,
                 c_ast.Assignment(
                     '=',
                     c_ast.StructRef(c_ast.ID('this'), '->', c_ast.ID('__vtable__')),
@@ -413,11 +426,12 @@ class PtrTypeInfo(TypeInfo):
 
 
 class VariableInfo:
-    def __init__(self, name, type, storage):
+    def __init__(self, name, type, storage, coord=None):
         self.name = name
         self.type = type
         self.storage = storage
         self.init = None
+        self.coord = coord
 
     def __str__(self):
         return 'Variable(%s, %s)' % (self.name, self.type)

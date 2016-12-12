@@ -27,6 +27,7 @@ def main():
 
     parser = ParserImproved()
     parse_tree = parser.parse(text=input_text, filename=input_filename)
+    fix_coords(parse_tree)
     ast_transformer = ASTTransformer()
     ast_transformer.visit(parse_tree)
     fix_extension_qualifier(parse_tree)
@@ -45,6 +46,9 @@ def fix_coords(node, parent_coord=None):
         node.coord = parent_coord
     for c_name, c in node.children():
         fix_coords(c, node.coord)
+        if ((node.coord is None) or (node.coord.line == 0)) and (c.coord is not None) and (c.coord != 0):
+            node.coord = c.coord
+
 
 def fix_extension_qualifier(node):
     if hasattr(node, 'storage') and hasattr(node, 'quals'):

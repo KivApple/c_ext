@@ -27,11 +27,11 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
                                | storage_class_specifier specifier_qualifier_list struct_declarator_list_opt SEMI
         """
         if len(p) == 5:
-            new_p = [p[0], p[2], p[3], p[4]]
-            super(ParserImproved, self).p_struct_declaration_1(new_p)
-            p[0] = new_p[0]
+            storage_specs = p[1]
+            del p.slice[1]
+            super(ParserImproved, self).p_struct_declaration_1(p)
             for decl in p[0]:
-                decl.storage.append(p[1])
+                decl.storage.append(storage_specs)
         else:
             super(ParserImproved, self).p_struct_declaration_1(p)
 
@@ -40,11 +40,11 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
                                | storage_class_specifier specifier_qualifier_list abstract_declarator SEMI
         """
         if len(p) == 5:
-            new_p = [p[0], p[2], p[3], p[4]]
+            storage_specs = p[1]
+            del p.slice[1]
             super(ParserImproved, self).p_struct_declaration_2(p)
-            p[0] = new_p[0]
             for decl in p[0]:
-                decl.storage.append(p[1])
+                decl.storage.append(storage_specs)
         else:
             super(ParserImproved, self).p_struct_declaration_2(p)
 
