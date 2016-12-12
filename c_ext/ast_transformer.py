@@ -101,16 +101,23 @@ class ASTTransformer(c_ast.NodeVisitor):
         assert isinstance(node, c_ast.FuncDecl)
         return_type = self.visit(node.type)
         args_types = list()
+        args = OrderedDict()
         if node.args is not None:
             for arg_decl in node.args.params:
                 if isinstance(arg_decl, c_ast.Decl):
-                    args_types.append(self.visit(arg_decl.type))
+                    arg_type_info = self.visit(arg_decl.type)
+                    args_types.append(arg_type_info)
+                    if arg_decl.name is not None:
+                        args[arg_decl.name] = arg_type_info
                 elif isinstance(arg_decl, c_ast.Typename):
-                    args_types.append(self.visit(arg_decl.type))
+                    arg_type_info = self.visit(arg_decl.type)
+                    args_types.append(arg_type_info)
+                    if arg_decl.name is not None:
+                        args[arg_decl.name] = arg_type_info
                 elif isinstance(arg_decl, c_ast.EllipsisParam):
                     args_types.append(None)
                     break
-        type_info = FuncTypeInfo(return_type, args_types)
+        type_info = FuncTypeInfo(return_type, args_types, args)
         return type_info
 
     def visit_PtrDecl(self, node):
@@ -125,11 +132,25 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_Decl(self, node):
         assert isinstance(node, c_ast.Decl)
+        if isinstance(node.name, tuple):
+            assert len(node.name) == 2
+            struct_type_info = self.scope.find_symbol("struct %s" % node.name[0])
+            assert isinstance(struct_type_info, StructTypeInfo)
+            member_name = node.name[1]
+            new_name = '%s_%s' % (struct_type_info.name, member_name)
+            node.name = new_name
+            tmp = node.type
+            while not isinstance(tmp, c_ast.TypeDecl):
+                tmp = tmp.type
+            tmp.declname = new_name
+            struct_type_info.fix_member_implementation(node, member_name)
         type_info = self.visit(node.type)
         if isinstance(node.type, c_ast.Struct):
             node.type = type_info.to_ast(node.type.decls is not None)
+        var_info = None
         if node.name is not None:
-            self.scope.add_symbol(node.name, VariableInfo(node.name, type_info, node.storage))
+            var_info = VariableInfo(node.name, type_info, node.storage)
+            self.scope.add_symbol(node.name, var_info)
             if node.init is not None:
                 init = self.visit(node.init)
                 init = TypeInfo.make_safe_cast(init, type_info)
@@ -137,6 +158,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     node.init = init.ast_node
                 else:
                     pass # Warning
+        return var_info
 
     def visit_Typedef(self, node):
         assert isinstance(node, c_ast.Typedef)
@@ -189,3 +211,14 @@ class ASTTransformer(c_ast.NodeVisitor):
     def visit_Assignment(self, node):
         assert isinstance(node, c_ast.Assignment)
         return BinaryExpression(node.op, self.visit(node.lvalue), self.visit(node.rvalue), node)
+
+    def visit_FuncDef(self, node):
+        assert isinstance(node, c_ast.FuncDef)
+        var_info = self.visit(node.decl)
+        prev_scope = self.scope
+        self.scope = Scope(self.scope)
+        assert isinstance(var_info.type, FuncTypeInfo)
+        for name, type_info in iteritems(var_info.type.args):
+            self.scope.add_symbol(name, VariableInfo(name, type_info, list()))
+        self.visit(node.body)
+        self.scope = prev_scope

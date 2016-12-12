@@ -145,8 +145,15 @@ class StructTypeInfo(TypeInfo):
                     tmp = type_decl
                     while not isinstance(tmp, c_ast.TypeDecl):
                         tmp = tmp.type
-                    tmp.declname = full_name
-                    methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
+                    if isinstance(tmp.type, c_ast.FuncDecl):
+                        tmp = tmp.type
+                        while not isinstance(tmp, c_ast.TypeDecl):
+                            tmp = tmp.type
+                        assert isinstance(tmp, c_ast.TypeDecl)
+                        tmp.declname = full_name
+                    else:
+                        tmp.declname = full_name
+                    methods_decls.append(c_ast.Decl(full_name, list(), ['extern'], list(),
                                                     type_decl, None, None))
         if self.parent is not None:
             virtual_methods_decls = self.parent.make_methods_decls(True) + virtual_methods_decls
@@ -184,17 +191,53 @@ class StructTypeInfo(TypeInfo):
                 node.args.exprs.insert(0, this_ptr.ast_node)
         elif self.parent is not None:
             self.parent.fix_method_call(node, expression)
+        elif isinstance(node.name, c_ast.ID):
+            symbol = self.scope.find_symbol(node.name.name)
+            assert isinstance(symbol.type, FuncTypeInfo)
+            if node.args is None:
+                node.args = c_ast.ExprList(list())
+            this_type_info = symbol.type.args_types[0]\
+                if len(symbol.type.args_types) > 0 else expression.value.type_info
+            this_ptr = expression.value
+            if not isinstance(this_ptr.type_info, PtrTypeInfo):
+                from .expression import UnaryExpression
+                this_ptr = UnaryExpression('&', this_ptr, c_ast.UnaryOp('&', this_ptr.ast_node))
+            this_ptr = TypeInfo.make_safe_cast(this_ptr, this_type_info)
+            node.args.exprs.insert(0, this_ptr.ast_node)
 
     def fix_member_access(self, node):
         assert isinstance(node, c_ast.StructRef)
-        symbol = self.scope.symbols.get(node.field.name)
+        if isinstance(node.field.name, tuple):
+            if node.field.name[0] != self.name:
+                if self.parent is not None:
+                    return self.parent.fix_member_access(node)
+            member_name = node.field.name[-1]
+            full_name = '%s_%s' % (self.name, member_name)
+            return c_ast.ID(full_name)
+        else:
+            member_name = node.field.name
+        symbol = self.scope.symbols.get(member_name)
         if symbol is not None:
             if 'static' in symbol.storage:
-                full_name = '%s_%s' % (self.name, node.field.name)
+                full_name = '%s_%s' % (self.name, member_name)
                 return c_ast.ID(full_name)
         elif self.parent is not None:
             return self.parent.fix_member_access(node)
         return node
+
+    def fix_member_implementation(self, node, name):
+        assert isinstance(node, c_ast.Decl)
+        if isinstance(node.type, c_ast.FuncDecl):
+            symbol = self.scope.find_symbol(name)
+            assert isinstance(symbol, VariableInfo)
+            if 'static' not in symbol.storage:
+                if node.type.args is None:
+                    node.type.args = c_ast.ParamList(list())
+                node.type.args.params.insert(0, c_ast.Decl('this', list(), list(), list(),
+                    c_ast.PtrDecl(['const'],
+                        c_ast.TypeDecl('this', list(), c_ast.Struct(self.name, None))
+                    ),
+                None, None))
 
     def safe_cast(self, expression, type_info):
         return None
@@ -228,10 +271,11 @@ class ArrayTypeInfo(TypeInfo):
 
 
 class FuncTypeInfo(TypeInfo):
-    def __init__(self, return_type, args_types):
+    def __init__(self, return_type, args_types, args=None):
         TypeInfo.__init__(self)
         self.return_type = return_type
         self.args_types = args_types
+        self.args = args
 
     def __str__(self):
         return 'Func(%s) -> %s' % (', '.join(['%s' % type for type in self.args_types]), self.return_type)
@@ -310,8 +354,6 @@ class PtrTypeInfo(TypeInfo):
 
     def to_ast(self, verbose=True):
         base_type_decl = self.base_type.to_ast(verbose)
-        if not isinstance(base_type_decl, c_ast.TypeDecl):
-            base_type_decl = c_ast.TypeDecl(None, list(), base_type_decl)
         return c_ast.PtrDecl(self.quals, base_type_decl)
 
 

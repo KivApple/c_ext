@@ -1,37 +1,38 @@
 struct A
 {
   struct A_VTable *__vtable__;
-  int a;
 };
 struct A_VTable
 {
-  void (*test3)(struct A *);
+  int (*get_value)(struct A *);
 };
-int () *A_c;
-void A_test1();
-void A_test2(struct A *);
-void A_test3(struct A *);
+int A_get_value(struct A *);
 struct B
 {
   struct B_VTable *__vtable__;
-  int a;
-  int b;
 };
 struct B_VTable
 {
-  void (*test3)(struct A *);
+  int (*get_value)(struct A *);
+  int (*get_value)(struct B *);
 };
-struct B a;
-struct B *b = & a;
-int f(struct A *);
+int B_get_value(struct B *);
+int A_get_value(struct A * const this)
+{
+  return 10;
+}
+
+int B_get_value(struct B * const this)
+{
+  this->__vtable__->get_value(this);
+  return A_get_value((struct A * const ) this) * 2;
+}
+
+struct B b;
+struct B *b_ptr = & b;
 int main()
 {
-  int (*g)(struct B *) = (int (struct B *) *) f;
-  A_test1();
-  A_test2((struct A *) b);
-  b->__vtable__->test3((struct A *) b);
-  A_test3((struct A *) (& a));
-  A_c();
+  b_ptr->__vtable__->get_value(b_ptr);
   return 0;
 }
 

@@ -19,6 +19,7 @@ def main():
     parse_tree = parser.parse(text=input_text, filename=input_filename)
     ast_transformer = ASTTransformer()
     ast_transformer.visit(parse_tree)
+    fix_coords(parse_tree)
     generator = CGeneratorBase()
     result = generator.visit(parse_tree)
 
@@ -27,6 +28,12 @@ def main():
     output_file.write(result)
     output_file.close()
 
+
+def fix_coords(node, parent_coord=None):
+    if node.coord is None:
+        node.coord = parent_coord
+    for c_name, c in node.children():
+        fix_coords(c, node.coord)
 
 if __name__ == '__main__':
     main()

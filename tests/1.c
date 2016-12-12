@@ -1,27 +1,24 @@
 struct A {
-    int a;
-    static int (*c)();
-
-    static void test1();
-    void test2();
-    virtual void test3();
+    virtual int get_value();
 };
 
 struct B: A {
-    int b;
+    virtual int get_value();
 };
 
-struct B a;
-struct B *b = &a;
+int A::get_value() {
+    return 10;
+}
 
-int f(struct A*);
+int B::get_value() {
+    this->get_value();
+    return this->A::get_value() * 2;
+}
+
+struct B b;
+struct B *b_ptr = &b;
 
 int main() {
-    int (*g)(struct B*) = f;
-    b->test1();
-    b->test2();
-    b->test3();
-    a.test3();
-    a.c();
+    b_ptr->get_value();
     return 0;
 }

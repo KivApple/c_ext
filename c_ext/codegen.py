@@ -2,6 +2,10 @@ from pycparser.c_generator import CGenerator as CGeneratorBaseBuggy
 
 
 class CGeneratorBase(CGeneratorBaseBuggy):
+    def __init__(self):
+        super(CGeneratorBase, self).__init__()
+        self.last_coord = None
+
     # bug fix
     def visit_UnaryOp(self, n):
         operand = self._parenthesize_unless_simple(n.expr)
