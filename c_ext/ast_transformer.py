@@ -1,8 +1,11 @@
 import copy
 from collections import OrderedDict
 from six import iteritems
+
 import pycparser.c_ast as c_ast
 from pycparserext.ext_c_parser import TypeDeclExt, ArrayDeclExt, FuncDeclExt
+
+from .error import CodeSyntaxError
 from .parser import StructImproved
 from .scope import Scope
 from .types import *
@@ -32,7 +35,8 @@ class ASTTransformer(c_ast.NodeVisitor):
         full_type_name = ' '.join(node.names)
         type_info = self.scope.find_symbol(full_type_name)
         if type_info is not None:
-            assert isinstance(type_info, TypeInfo)
+            if not isinstance(type_info, TypeInfo):
+                raise CodeSyntaxError('%s is not name of type' % full_type_name, node.coord)
             return type_info
         return ScalarTypeInfo(full_type_name)
 
@@ -55,7 +59,8 @@ class ASTTransformer(c_ast.NodeVisitor):
         parent = None
         if isinstance(node, StructImproved):
             parent = self.scope.find_symbol('struct %s' % node.parent)
-            assert isinstance(parent, StructTypeInfo)
+            if not isinstance(parent, StructTypeInfo):
+                raise CodeSyntaxError('%s is not name of struct type' % node.parent, node.coord)
         type_info = None
         if node.name is not None:
             type_info = self.scope.find_symbol('%s %s' % (kind, node.name))
@@ -76,8 +81,10 @@ class ASTTransformer(c_ast.NodeVisitor):
             self.scope = prev_scope
             methods_decls = type_info.make_methods_decls()
             if methods_decls:
-                assert type_info.name is not None
-                assert self.scope.parents[0] is None
+                if type_info.name is None:
+                    raise CodeSyntaxError('Unnamed classes is not supported', node.coord)
+                if self.scope.parents[0] is not None:
+                    raise CodeSyntaxError('Classes can be declared only in toplevel scope', node.coord)
                 self.methods_decls += methods_decls
         return type_info
 
@@ -147,7 +154,8 @@ class ASTTransformer(c_ast.NodeVisitor):
         if isinstance(node.name, tuple):
             assert len(node.name) == 2
             struct_type_info = self.scope.find_symbol("struct %s" % node.name[0])
-            assert isinstance(struct_type_info, StructTypeInfo)
+            if not isinstance(struct_type_info, StructTypeInfo):
+                raise CodeSyntaxError('%s is not structure name' % node.name[0], node.coord)
             member_name = node.name[1]
             new_name = '%s_%s' % (struct_type_info.name, member_name)
             node.name = new_name
@@ -161,6 +169,21 @@ class ASTTransformer(c_ast.NodeVisitor):
             node.type = type_info.to_ast(node.type.decls is not None)
         var_info = None
         if node.name is not None:
+            symbol = self.scope.find_symbol(node.name, True)
+            if symbol is not None:
+                fail = True
+                if isinstance(symbol, VariableInfo):
+                    if symbol.type.__class__ == type_info.__class__:
+                        if 'extern' in symbol.storage:
+                            fail = False
+                        elif isinstance(type_info, FuncTypeInfo):
+                            tmp = symbol.type
+                            if not isinstance(tmp, PtrTypeInfo):
+                                tmp = PtrTypeInfo(tmp)
+                            if TypeInfo.is_compatible(type_info, tmp):
+                                fail = False
+                if fail:
+                    raise CodeSyntaxError('Symbol %s already defined in current scope' % node.name, node.coord)
             var_info = VariableInfo(node.name, type_info, node.storage, coord=node.coord)
             self.scope.add_symbol(node.name, var_info)
             if node.init is not None:
@@ -241,5 +264,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             type_info = self.scope.find_symbol('struct %s' % name_[0])
             if isinstance(type_info, StructTypeInfo):
                 type_info.fix_func_implementation(node, name_[1])
+            else:
+                raise CodeSyntaxError('%s is not structure name' % name_[0], node.coord)
         self.visit(node.body)
         self.scope = prev_scope
