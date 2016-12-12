@@ -404,11 +404,11 @@ extern int ftrylockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 #line 921 "/usr/include/stdio.h"
 extern void funlockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 #line 4 "/home/kiv/projects/c_ext/tests/1.c"
-struct A
+typedef struct A
 {
 #line 4 "/home/kiv/projects/c_ext/tests/1.c"
   const struct A_VTable *__vtable__;
-};
+} A;
 #line 4 "/home/kiv/projects/c_ext/tests/1.c"
 struct A_VTable
 {
@@ -419,11 +419,11 @@ struct A_VTable
 void A_construct(struct A *);
 void A_destroy(struct A *);
 #line 10 "/home/kiv/projects/c_ext/tests/1.c"
-struct B
+typedef struct B
 {
 #line 10 "/home/kiv/projects/c_ext/tests/1.c"
   const struct B_VTable *__vtable__;
-};
+} B;
 #line 10 "/home/kiv/projects/c_ext/tests/1.c"
 struct B_VTable
 {
@@ -471,8 +471,8 @@ void B_construct(struct B *const this)
   printf("B::construct()\n");
 }
 
-struct B b;
-struct A *b_ptr = (struct A *) (& b);
+B b;
+A *b_ptr = (struct A *) (& b);
 #line 38 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
