@@ -2,6 +2,7 @@ import copy
 from collections import OrderedDict
 from six import iteritems
 import pycparser.c_ast as c_ast
+from pycparserext.ext_c_parser import TypeDeclExt, ArrayDeclExt, FuncDeclExt
 from .parser import StructImproved
 from .scope import Scope
 from .types import *
@@ -81,7 +82,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         return type_info
 
     def visit_TypeDecl(self, node):
-        assert isinstance(node, c_ast.TypeDecl)
+        assert isinstance(node, (c_ast.TypeDecl, TypeDeclExt))
         type_info = self.visit(node.type)
         if isinstance(node.type, c_ast.Struct):
             node.type = type_info.to_ast(node.type.decls is not None)
@@ -89,16 +90,23 @@ class ASTTransformer(c_ast.NodeVisitor):
         type_info.quals += node.quals
         return type_info
 
+    def visit_TypeDeclExt(self, node):
+        return self.visit_TypeDecl(node)
+
     def visit_ArrayDecl(self, node):
-        assert isinstance(node, c_ast.ArrayDecl)
+        assert isinstance(node, (c_ast.ArrayDecl, ArrayDeclExt))
         type_info = self.visit(node.type)
         dim = None
         if node.dim is not None:
             dim = self.visit(node.dim)
         return ArrayTypeInfo(type_info, dim)
 
+    def visit_ArrayDeclExt(self, node):
+        assert isinstance(node, ArrayDeclExt)
+        return self.visit_ArrayDecl(node)
+
     def visit_FuncDecl(self, node):
-        assert isinstance(node, c_ast.FuncDecl)
+        assert isinstance(node, (c_ast.FuncDecl, FuncDeclExt))
         return_type = self.visit(node.type)
         args_types = list()
         args = OrderedDict()
@@ -119,6 +127,10 @@ class ASTTransformer(c_ast.NodeVisitor):
                     break
         type_info = FuncTypeInfo(return_type, args_types, args)
         return type_info
+
+    def visit_FuncDeclExt(self, node):
+        assert isinstance(node, FuncDeclExt)
+        return self.visit_FuncDecl(node)
 
     def visit_PtrDecl(self, node):
         assert isinstance(node, c_ast.PtrDecl)

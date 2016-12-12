@@ -1,7 +1,7 @@
-import pycparser.c_lexer
+import pycparserext.ext_c_lexer
 
 
-class LexerImproved(pycparser.c_parser.CLexer):
+class LexerImproved(pycparserext.ext_c_lexer.GnuCLexer):
     def __init__(self, error_func, on_lbrace_func, on_rbrace_func,
                  type_lookup_func):
         self.keywords = list(self.keywords)

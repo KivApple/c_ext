@@ -26,8 +26,10 @@ class VariableExpression(Expression):
         self.name = name
         self.scope = scope
         var_info = scope.find_symbol(name)
-        assert isinstance(var_info, VariableInfo)
-        Expression.__init__(self, var_info.type, ast_node)
+        if isinstance(var_info, VariableInfo):
+            Expression.__init__(self, var_info.type, ast_node)
+        else:
+            Expression.__init__(self, None, ast_node)
 
     def __str__(self):
         return self.name
@@ -37,6 +39,9 @@ class UnaryExpression(Expression):
     def __init__(self, op, operand, ast_node=None):
         self.op = op
         self.operand = operand
+        if op == 'sizeof':
+            Expression.__init__(self, ScalarTypeInfo('int'), ast_node)
+            return
         operand_type_info = operand.type_info
         ast_node.expr = operand.ast_node
         if op == '&':
@@ -151,24 +156,25 @@ class CallExpression(Expression):
         type_info = self.value.type_info
         if isinstance(type_info, PtrTypeInfo):
             type_info = type_info.base_type
-        assert isinstance(type_info, FuncTypeInfo)
-        args_types = [arg.type_info for arg in args]
-        i = 0
-        while i < len(args_types):
-            src_arg_type = args_types[i]
-            assert i < len(type_info.args_types)
-            dst_arg_type = type_info.args_types[i]
-            if dst_arg_type is None:
-                break
-            casted = TypeInfo.make_safe_cast(args[i], dst_arg_type)
-            if casted is None:
-                casted = args[i] # Warning
-            ast_node.args.exprs[i] = casted.ast_node
-            i += 1
-        if isinstance(value, MemberExpression):
-            assert isinstance(value.struct_type_info, StructTypeInfo)
-            value.struct_type_info.fix_method_call(ast_node, value)
-        Expression.__init__(self, type_info.return_type, ast_node)
+        if isinstance(type_info, FuncTypeInfo):
+            args_types = [arg.type_info for arg in args]
+            i = 0
+            while i < len(args_types):
+                src_arg_type = args_types[i]
+                assert i < len(type_info.args_types)
+                dst_arg_type = type_info.args_types[i]
+                if dst_arg_type is None:
+                    break
+                casted = TypeInfo.make_safe_cast(args[i], dst_arg_type)
+                if casted is None:
+                    casted = args[i] # Warning
+                ast_node.args.exprs[i] = casted.ast_node
+                i += 1
+            if isinstance(value, MemberExpression):
+                assert isinstance(value.struct_type_info, StructTypeInfo)
+                value.struct_type_info.fix_method_call(ast_node, value)
+            Expression.__init__(self, type_info.return_type, ast_node)
+        Expression.__init__(self, None, ast_node)
 
     def __str__(self):
         return '%s(%s)' % (self.value, ', '.join([str(arg) for arg in self.args]))

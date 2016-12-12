@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from six import iteritems
 import copy
 import pycparser.c_ast as c_ast
@@ -76,7 +77,7 @@ class StructTypeInfo(TypeInfo):
 
     def to_ast(self, verbose=True, node=None):
         need_vtable = node is None
-        node = c_ast.Struct(self.ast_node.name, list() if verbose else None, self.ast_node.coord)\
+        node = c_ast.Struct(self.name, list() if verbose else None)\
             if node is None else node
         if verbose and (self.scope is not None):
             if self.parent is not None:
@@ -158,7 +159,10 @@ class StructTypeInfo(TypeInfo):
         if self.parent is not None:
             virtual_methods_decls = self.parent.make_methods_decls(True) + virtual_methods_decls
         if (len(virtual_methods_decls) > 0) and not vtable:
-            vtable_decl = c_ast.Struct('%s_VTable' % self.name, virtual_methods_decls)
+            virtual_decls = OrderedDict()
+            for decl in virtual_methods_decls:
+                virtual_decls[decl.name] = decl
+            vtable_decl = c_ast.Struct('%s_VTable' % self.name, [decl for name, decl in iteritems(virtual_decls)])
             vtable_decl = c_ast.Decl(None, list(), list(), list(), vtable_decl, None, None)
             methods_decls.insert(0, vtable_decl)
         return methods_decls if not vtable else virtual_methods_decls

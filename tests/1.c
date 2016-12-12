@@ -1,24 +1,22 @@
+#include <stdlib.h>
+#include <stdio.h>
+
 struct A {
-    virtual int get_value();
+    virtual void print_text();
 };
 
 struct B: A {
-    virtual int get_value();
+    virtual void print_text();
 };
 
-int A::get_value() {
-    return 10;
-}
-
-int B::get_value() {
-    this->get_value();
-    return this->A::get_value() * 2;
+void A::print_text() {
+    printf("Hello world");
 }
 
 struct B b;
 struct B *b_ptr = &b;
 
 int main() {
-    b_ptr->get_value();
+    b_ptr->print_text();
     return 0;
 }

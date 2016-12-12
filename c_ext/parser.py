@@ -1,4 +1,4 @@
-import pycparser.c_parser
+import pycparserext.ext_c_parser
 from pycparser import c_ast
 from .lexer import LexerImproved
 try:
@@ -7,11 +7,9 @@ except ImportError:
     import ply.yacc as yacc
 
 
-class ParserImproved(pycparser.c_parser.CParser):
+class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
     def __init__(self, **kwargs):
-        kwargs['lex_optimize'] = kwargs.get('lex_optimize', False)
-        kwargs['yacc_optimize'] = kwargs.get('yacc_optimize', False)
-        kwargs['lexer'] = kwargs.get('lexer', LexerImproved)
+        self.lexer_class = LexerImproved
         super(ParserImproved, self).__init__(**kwargs)
 
     def p_storage_class_specifier(self, p):
