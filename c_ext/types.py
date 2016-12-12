@@ -379,8 +379,11 @@ class FuncTypeInfo(TypeInfo):
             return_type_decl = c_ast.TypeDecl(None, list(), return_type_decl)
         node = c_ast.FuncDecl(c_ast.ParamList(list()), return_type_decl)
         for arg_type in self.args_types:
-            arg_type_decl = arg_type.to_ast(verbose)
-            arg_type_decl = c_ast.Typename(None, list(), arg_type_decl)
+            if arg_type is not None:
+                arg_type_decl = arg_type.to_ast(verbose)
+                arg_type_decl = c_ast.Typename(None, list(), arg_type_decl)
+            else:
+                arg_type_decl = c_ast.EllipsisParam()
             node.args.params.append(arg_type_decl)
         return node
 
