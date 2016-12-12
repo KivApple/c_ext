@@ -8,9 +8,42 @@ except ImportError:
 
 
 class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
-    def __init__(self, **kwargs):
+    def __init__(
+            self,
+            lex_optimize=False,
+            lextab='lextab',
+            yacc_optimize=False,
+            yacctab='yacctab',
+            yacc_debug=False,
+            taboutputdir='',
+            write_tables=False):
         self.lexer_class = LexerImproved
-        super(ParserImproved, self).__init__(**kwargs)
+        self.clex = self.lexer_class(
+            error_func=self._lex_error_func,
+            on_lbrace_func=self._lex_on_lbrace_func,
+            on_rbrace_func=self._lex_on_rbrace_func,
+            type_lookup_func=self._lex_type_lookup_func)
+
+        self.clex.build(
+            optimize=lex_optimize,
+            lextab=lextab,
+            outputdir=taboutputdir
+        )
+        self.tokens = self.clex.tokens
+
+        for rule in self.OPT_RULES:
+            self._create_opt_rule(rule)
+
+        self.ext_start_symbol = "translation_unit_or_empty"
+
+        self.cparser = yacc.yacc(
+            module=self,
+            start=self.ext_start_symbol,
+            debug=yacc_debug,
+            optimize=yacc_optimize,
+            tabmodule=yacctab,
+            outputdir=taboutputdir,
+            write_tables=write_tables)
 
     def p_storage_class_specifier(self, p):
         """ storage_class_specifier : AUTO
