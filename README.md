@@ -62,9 +62,7 @@ You can define methods inside structure.
     void C::some_virtual_method(int x) {
         this->i = x;
     }
-
     ...
-
     struct C c;
     c.construct();
     c.some_virtual_method(10);
@@ -91,9 +89,9 @@ Also you can explicitly call parent method.
         static int i;
         static void f();
     };
-
     ...
-
+    int E::i = 0;
+    ...
     E::i = 10;
     E::test();
 
