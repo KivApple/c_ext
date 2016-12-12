@@ -547,6 +547,8 @@ extern int ftrylockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 extern void funlockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 struct A
 {
+  int i;
+  int j;
   struct A_VTable *__vtable__;
 };
 struct A_VTable
@@ -556,7 +558,10 @@ struct A_VTable
 void A_print_text(struct A *);
 struct B
 {
+  int i;
+  int j;
   struct B_VTable *__vtable__;
+  int k;
 };
 struct B_VTable
 {

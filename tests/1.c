@@ -2,10 +2,16 @@
 #include <stdio.h>
 
 struct A {
+    int i;
+
     virtual void print_text();
+
+    int j;
 };
 
 struct B: A {
+    int k;
+
     virtual void print_text();
 };
 

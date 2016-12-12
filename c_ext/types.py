@@ -76,7 +76,6 @@ class StructTypeInfo(TypeInfo):
         )
 
     def to_ast(self, verbose=True, node=None):
-        need_vtable = node is None
         node = c_ast.Struct(self.name, list() if verbose else None)\
             if node is None else node
         if verbose and (self.scope is not None):
@@ -91,18 +90,28 @@ class StructTypeInfo(TypeInfo):
                         continue
                     if isinstance(decl.type, c_ast.FuncDecl):
                         if ('virtual' in decl.storage):
-                            self.has_vtable = True
+                            if not self.has_vtable:
+                                self.has_vtable = True
                         continue
                 node.decls.append(decl)
-        if need_vtable and self.has_vtable and node.decls is not None:
-            node.decls.insert(0, c_ast.Decl(
+        if self.has_vtable and node.decls is not None:
+            vtable_decl = c_ast.Decl(
                 '__vtable__', list(), list(), list(),
                 c_ast.PtrDecl(list(), c_ast.TypeDecl(
                     '__vtable__', list(),
                     c_ast.Struct('%s_VTable' % self.name, None)
                 )),
                 None, None
-            ))
+            )
+            if (self.parent is not None) and self.parent.has_vtable:
+                i = 0
+                while i < len(node.decls):
+                    if node.decls[i].name == '__vtable__':
+                        node.decls[i] = vtable_decl
+                        break
+                    i += 1
+            else:
+                node.decls.append(vtable_decl)
         node = c_ast.TypeDecl(None, self.quals, node, node.coord)
         return node
 
