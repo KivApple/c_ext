@@ -403,77 +403,77 @@ extern void flockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 extern int ftrylockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 #line 921 "/usr/include/stdio.h"
 extern void funlockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
-#line 3 "tests/1.c"
+#line 3 "/home/kiv/projects/c_ext/tests/1.c"
 struct A
 {
-#line 3 "tests/1.c"
+#line 3 "/home/kiv/projects/c_ext/tests/1.c"
   const struct A_VTable *__vtable__;
 };
-#line 3 "tests/1.c"
+#line 3 "/home/kiv/projects/c_ext/tests/1.c"
 struct A_VTable
 {
   void (*destroy)(struct A *);
   void (*print_text)(struct A *);
 };
-#line 4 "tests/1.c"
+#line 4 "/home/kiv/projects/c_ext/tests/1.c"
 void A_construct(struct A *);
 void A_destroy(struct A *);
-#line 9 "tests/1.c"
+#line 9 "/home/kiv/projects/c_ext/tests/1.c"
 struct B
 {
-#line 9 "tests/1.c"
+#line 9 "/home/kiv/projects/c_ext/tests/1.c"
   const struct B_VTable *__vtable__;
 };
-#line 9 "tests/1.c"
+#line 9 "/home/kiv/projects/c_ext/tests/1.c"
 struct B_VTable
 {
-#line 5 "tests/1.c"
+#line 5 "/home/kiv/projects/c_ext/tests/1.c"
   void (*destroy)(struct A *);
-#line 11 "tests/1.c"
+#line 11 "/home/kiv/projects/c_ext/tests/1.c"
   void (*print_text)(struct B *);
 };
-#line 10 "tests/1.c"
+#line 10 "/home/kiv/projects/c_ext/tests/1.c"
 void B_construct(struct B *);
 void B_print_text(struct B *);
-#line 14 "tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
 void A_construct(struct A *const this)
 {
-#line 14 "tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
   static const struct A_VTable A_vtable = {A_destroy, 0};
-#line 14 "tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
   this->__vtable__ = & A_vtable;
   printf("A::construct()\n");
 }
 
 void A_destroy(struct A *const this)
 {
-#line 19 "tests/1.c"
+#line 19 "/home/kiv/projects/c_ext/tests/1.c"
   printf("Object destroyed\n");
 }
 
 void B_print_text(struct B *const this)
 {
-#line 23 "tests/1.c"
+#line 23 "/home/kiv/projects/c_ext/tests/1.c"
   printf("Hello world\n");
 }
 
 void B_construct(struct B *const this)
 {
-#line 26 "tests/1.c"
+#line 26 "/home/kiv/projects/c_ext/tests/1.c"
   static const struct B_VTable B_vtable = {A_destroy, B_print_text};
   A_construct((struct A *const ) this);
-#line 26 "tests/1.c"
+#line 26 "/home/kiv/projects/c_ext/tests/1.c"
   this->__vtable__ = & B_vtable;
-#line 28 "tests/1.c"
+#line 28 "/home/kiv/projects/c_ext/tests/1.c"
   printf("B::construct()\n");
 }
 
 struct B b;
 struct A *b_ptr = (struct A *) (& b);
-#line 34 "tests/1.c"
+#line 34 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
-#line 35 "tests/1.c"
+#line 35 "/home/kiv/projects/c_ext/tests/1.c"
   B_construct(& b);
   b_ptr->__vtable__->print_text(b_ptr);
   b_ptr->__vtable__->destroy(b_ptr);

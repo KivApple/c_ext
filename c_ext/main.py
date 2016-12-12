@@ -14,6 +14,7 @@ def main():
     args = argparser.parse_args()
 
     input_filename = args.input
+    input_filename = os.path.abspath(input_filename)
     if args.preprocessor:
         temp_filename = tempfile.mktemp(suffix='.c')
         os.system(args.preprocessor % (temp_filename, input_filename))
