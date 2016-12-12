@@ -255,7 +255,7 @@ class StructTypeInfo(TypeInfo):
 
     def fix_func_implementation(self, node, name):
         assert isinstance(node, c_ast.FuncDef)
-        if name == self.name:
+        if name == 'construct':
             if node.body.block_items is None:
                 node.body.block_items = list()
             vtable_values = OrderedDict()

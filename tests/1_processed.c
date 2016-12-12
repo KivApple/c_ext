@@ -249,23 +249,30 @@ struct A
 };
 struct A_VTable
 {
+  void (*destroy)(struct A *);
   void (*print_text)(struct A *);
 };
-void A_A(struct A *);
+void A_construct(struct A *);
+void A_destroy(struct A *);
 struct B
 {
   const struct B_VTable *__vtable__;
 };
 struct B_VTable
 {
+  void (*destroy)(struct A *);
   void (*print_text)(struct B *);
 };
-void B_B(struct B *);
+void B_construct(struct B *);
 void B_print_text(struct B *);
-void A_A(struct A *const this)
+void A_construct(struct A *const this)
 {
-  static const struct A_VTable A_vtable = {0};
+  static const struct A_VTable A_vtable = {A_destroy, 0};
   this->__vtable__ = & A_vtable;
+}
+
+void A_destroy(struct A *const this)
+{
 }
 
 void B_print_text(struct B *const this)
@@ -273,18 +280,19 @@ void B_print_text(struct B *const this)
   printf("Hello world\n");
 }
 
-void B_B(struct B *const this)
+void B_construct(struct B *const this)
 {
-  static const struct B_VTable B_vtable = {B_print_text};
+  static const struct B_VTable B_vtable = {A_destroy, B_print_text};
   this->__vtable__ = & B_vtable;
 }
 
 struct B b;
-struct B *b_ptr = & b;
+struct A *b_ptr = (struct A *) (& b);
 int main()
 {
-  B_B(& b);
+  B_construct(& b);
   b_ptr->__vtable__->print_text(b_ptr);
+  b_ptr->__vtable__->destroy(b_ptr);
   return 0;
 }
 
