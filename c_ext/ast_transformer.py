@@ -165,11 +165,14 @@ class ASTTransformer(c_ast.NodeVisitor):
             self.scope.add_symbol(node.name, var_info)
             if node.init is not None:
                 init = self.visit(node.init)
-                init = TypeInfo.make_safe_cast(init, type_info)
                 if init is not None:
-                    node.init = init.ast_node
-                else:
-                    pass # Warning
+                    self.scope.symbols[node.name].init = init
+                    init = TypeInfo.make_safe_cast(init, type_info)
+                    if init is not None:
+                        node.init = init.ast_node
+                        self.scope.symbols[node.name].init = init
+                    else:
+                        pass # Warning
         return var_info
 
     def visit_Typedef(self, node):
@@ -226,11 +229,17 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_FuncDef(self, node):
         assert isinstance(node, c_ast.FuncDef)
+        name_ = node.decl.name
         var_info = self.visit(node.decl)
         prev_scope = self.scope
         self.scope = Scope(self.scope)
         assert isinstance(var_info.type, FuncTypeInfo)
         for name, type_info in iteritems(var_info.type.args):
             self.scope.add_symbol(name, VariableInfo(name, type_info, list()))
+        if isinstance(name_, tuple):
+            assert len(name_) == 2
+            type_info = self.scope.find_symbol('struct %s' % name_[0])
+            if isinstance(type_info, StructTypeInfo):
+                type_info.fix_func_implementation(node, name_[1])
         self.visit(node.body)
         self.scope = prev_scope

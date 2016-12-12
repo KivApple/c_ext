@@ -89,7 +89,7 @@ class StructTypeInfo(TypeInfo):
                     if 'static' in decl.storage:
                         continue
                     if isinstance(decl.type, c_ast.FuncDecl):
-                        if ('virtual' in decl.storage):
+                        if 'virtual' in decl.storage:
                             if not self.has_vtable:
                                 self.has_vtable = True
                         continue
@@ -98,7 +98,7 @@ class StructTypeInfo(TypeInfo):
             vtable_decl = c_ast.Decl(
                 '__vtable__', list(), list(), list(),
                 c_ast.PtrDecl(list(), c_ast.TypeDecl(
-                    '__vtable__', list(),
+                    '__vtable__', ['const'],
                     c_ast.Struct('%s_VTable' % self.name, None)
                 )),
                 None, None
@@ -139,8 +139,9 @@ class StructTypeInfo(TypeInfo):
                         )
                     elif len(func_type_decl.args.params) == 0:
                         func_type_decl.args = None
-                    methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
-                                                    func_type_decl, None, None))
+                    if symbol.init is None:
+                        methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
+                                                        func_type_decl, None, None))
                     if virtual:
                         func_type_decl = c_ast.FuncDecl(
                             func_type_decl.args,
@@ -251,6 +252,47 @@ class StructTypeInfo(TypeInfo):
                         c_ast.TypeDecl('this', list(), c_ast.Struct(self.name, None))
                     ),
                 None, None))
+
+    def fix_func_implementation(self, node, name):
+        assert isinstance(node, c_ast.FuncDef)
+        if name == self.name:
+            if node.body.block_items is None:
+                node.body.block_items = list()
+            vtable_values = OrderedDict()
+            class_list = [self]
+            tmp = self.parent
+            while tmp is not None:
+                class_list.append(tmp)
+                tmp = tmp.parent
+            class_list.reverse()
+            for cls in class_list:
+                for key, value in iteritems(cls.scope.symbols):
+                    if isinstance(value, VariableInfo):
+                        if isinstance(value.type, FuncTypeInfo):
+                            if 'virtual' in value.storage:
+                                if value.init is None:
+                                    vtable_values[key] = c_ast.ID('%s_%s' % (cls.name, key))
+                                else:
+                                    vtable_values[key] = value.init.ast_node
+            vtable_name = '%s_vtable' % self.name
+            node.body.block_items.insert(
+                0,
+                c_ast.Decl(
+                    vtable_name, ['const'], ['static'], list(),
+                    c_ast.TypeDecl(vtable_name, ['const'], c_ast.Struct('%s_VTable' % self.name, None)),
+                    c_ast.InitList([value for key, value in iteritems(vtable_values)]),
+                    None
+                )
+            )
+            node.body.block_items.insert(
+                1,
+                c_ast.Assignment(
+                    '=',
+                    c_ast.StructRef(c_ast.ID('this'), '->', c_ast.ID('__vtable__')),
+                    c_ast.UnaryOp('&', c_ast.ID(vtable_name))
+                )
+            )
+            pass
 
     def safe_cast(self, expression, type_info):
         return None
@@ -375,6 +417,7 @@ class VariableInfo:
         self.name = name
         self.type = type
         self.storage = storage
+        self.init = None
 
     def __str__(self):
         return 'Variable(%s, %s)' % (self.name, self.type)

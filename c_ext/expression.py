@@ -140,8 +140,10 @@ class MemberExpression(Expression):
                 ast_node = self.struct_type_info.fix_member_access(ast_node)
         else:
             ast_node = self.struct_type_info.fix_member_access(ast_node)
-            assert isinstance(ast_node, c_ast.ID)
-            type_info = self.struct_type_info.scope.find_symbol(ast_node.name).type
+            if isinstance(ast_node, c_ast.ID):
+                type_info = self.struct_type_info.scope.find_symbol(ast_node.name).type
+            else:
+                type_info = None
         Expression.__init__(self, type_info, ast_node)
 
     def __str__(self):

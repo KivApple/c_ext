@@ -66,6 +66,15 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
             coord=self._coord(p.lineno(2))
         )
 
+    def p_struct_declarator_1(self, p):
+        """ struct_declarator : declarator EQUALS constant_expression
+                              | declarator
+        """
+        if len(p) == 2:
+            p[0] = {'decl': p[1], 'bitsize': None}
+        else:
+            p[0] = {'decl': p[1], 'bitsize': None, 'init': p[3]}
+
     def p_identifier(self, p):
         """ identifier  : TYPEID DOUBLECOLON ID
                         | ID DOUBLECOLON ID
