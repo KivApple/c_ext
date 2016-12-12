@@ -96,7 +96,7 @@ method name in brackets in implementation:
     } A;
 
     void (A::construct)() {
-        // Do something
+        /* Do something */
     }
 
 ## Future plans
