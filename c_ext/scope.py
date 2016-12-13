@@ -6,6 +6,7 @@ class Scope:
     def __init__(self, *parents):
         self.parents = list(parents)
         self.symbols = OrderedDict()
+        self.attrs = set()
 
     def add_symbol(self, name, symbol):
         self.symbols[name] = symbol

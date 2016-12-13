@@ -17,6 +17,13 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.scope = None
         self.methods_decls = list()
         self.structs_with_declared_methods = set()
+        self.node_path = list()
+
+    def visit(self, node):
+        self.node_path.append(node)
+        retval = super(ASTTransformer, self).visit(node)
+        del self.node_path[-1]
+        return retval
 
     def visit_FileAST(self, node):
         self.scope = Scope(self.scope)
@@ -209,6 +216,28 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_ID(self, node):
         assert isinstance(node, c_ast.ID)
+        free = (len(self.node_path) == 0) or not isinstance(self.node_path[-1], c_ast.StructRef)
+        if free and ('member' in self.scope.attrs):
+            symbol_name = node.name
+            symbol_scope = self.scope
+            struct_type_info = None
+            if isinstance(node.name, tuple):
+                assert len(node.name) == 2
+                struct_type_info = self.scope.find_symbol('struct %s' % node.name[0])
+                if not isinstance(struct_type_info, StructTypeInfo):
+                    raise CodeSyntaxError('%s is not a structure name' % node.name[0], node)
+                symbol_scope = struct_type_info.scope
+                symbol_name = node.name[1]
+            symbol = symbol_scope.find_symbol(symbol_name, True)
+            if isinstance(symbol, VariableInfo):
+                if 'member' in symbol.attrs:
+                    this_ptr = VariableExpression('this', self.scope, c_ast.ID('this', node.coord))
+                    return MemberExpression(
+                        this_ptr,
+                        node.name,
+                        '->',
+                        c_ast.StructRef(this_ptr.ast_node, '->', c_ast.ID(node.name, node.coord), node.coord)
+                    )
         return VariableExpression(node.name, self.scope, node)
 
     def visit_UnaryOp(self, node):
@@ -263,8 +292,10 @@ class ASTTransformer(c_ast.NodeVisitor):
             assert len(name_) == 2
             type_info = self.scope.find_symbol('struct %s' % name_[0])
             if isinstance(type_info, StructTypeInfo):
+                self.scope.parents.insert(0, type_info.scope)
+                self.scope.attrs.add('member')
                 type_info.fix_func_implementation(node, name_[1])
             else:
-                raise CodeSyntaxError('%s is not structure name' % name_[0], node.coord)
+                raise CodeSyntaxError('%s is not a structure name' % name_[0], node.coord)
         self.visit(node.body)
         self.scope = prev_scope

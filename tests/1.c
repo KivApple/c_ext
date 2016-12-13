@@ -2,6 +2,7 @@
 #include <stdarg.h>
 
 typedef struct A {
+    static int i;
     void construct();
     virtual void destroy();
     virtual void print_text(const char *fmt, ...) = 0;
@@ -13,8 +14,11 @@ typedef struct B: A {
     virtual void print_text(const char *fmt, ...);
 } B;
 
+int (A::i) = 0;
+
 void (A::construct)() {
-    printf("A::construct()\n");
+    i++;
+    printf("A::construct(i == %i)\n", i);
 }
 
 void (A::destroy)() {
@@ -29,8 +33,8 @@ void (B::print_text)(const char *fmt, ...) {
 }
 
 void (B::construct)() {
-    this->A::construct();
-    printf("B::construct()\n");
+    A::construct();
+    printf("B::construct(i == %i)\n", i);
 }
 
 void (A::test)() {

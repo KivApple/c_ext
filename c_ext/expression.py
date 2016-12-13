@@ -185,6 +185,9 @@ class CallExpression(Expression):
                     casted = args[i] # Warning
                 ast_node.args.exprs[i] = casted.ast_node
                 i += 1
+            while i < len(args):
+                ast_node.args.exprs[i] = args[i].ast_node
+                i += 1
             if isinstance(value, MemberExpression):
                 assert isinstance(value.struct_type_info, StructTypeInfo)
                 value.struct_type_info.fix_method_call(ast_node, value)

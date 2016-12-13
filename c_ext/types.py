@@ -166,6 +166,7 @@ class StructTypeInfo(TypeInfo):
                         tmp.declname = full_name
                     methods_decls.append(c_ast.Decl(full_name, list(), ['extern'], list(),
                                                     type_decl, None, None, symbol.coord))
+                symbol.attrs.add('member')
         if self.parent is not None:
             virtual_methods_decls = self.parent.make_methods_decls(True) + virtual_methods_decls
         if (len(virtual_methods_decls) > 0) and not vtable:
@@ -287,6 +288,11 @@ class StructTypeInfo(TypeInfo):
                                         if len(n.name.field.name) == 2:
                                             if n.name.field.name[1] == 'construct':
                                                 j = i + 1
+                    elif isinstance(n.name, c_ast.ID):
+                        if isinstance(n.name.name, tuple):
+                            if len(n.name.name) == 2:
+                                if n.name.name[1] == 'construct':
+                                    j = i + 1
                 i += 1
             node.body.block_items.insert(
                 0,
@@ -434,6 +440,7 @@ class VariableInfo:
         self.type = type
         self.storage = storage
         self.init = None
+        self.attrs = set()
         self.coord = coord
 
     def __str__(self):
