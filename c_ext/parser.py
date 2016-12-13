@@ -31,6 +31,10 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         )
         self.tokens = self.clex.tokens
 
+        self.precedence = list(self.precedence)
+        self.precedence.insert(0, ('left', 'DOUBLECOLON'))
+        self.precedence = tuple(self.precedence)
+
         for rule in self.OPT_RULES:
             self._create_opt_rule(rule)
 

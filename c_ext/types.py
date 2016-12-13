@@ -174,7 +174,47 @@ class StructTypeInfo(TypeInfo):
             for decl in virtual_methods_decls:
                 virtual_decls[decl.name] = decl
             vtable_decl = c_ast.Struct('%s_VTable' % self.name, [decl for name, decl in iteritems(virtual_decls)])
-            vtable_decl = c_ast.Decl(None, list(), list(), list(), vtable_decl, None, None, self.ast_node.coord)
+            if self.parent is None:
+                vtable_decl.decls.insert(
+                    0,
+                    c_ast.Decl(
+                        '__parent__', list(), list(), list(),
+                        c_ast.PtrDecl(list(), c_ast.TypeDecl(
+                            '__parent__', ['const'],
+                            c_ast.IdentifierType(['void'])
+                        )),
+                        None, None
+                    )
+                )
+            else:
+                vtable_decl.decls.insert(
+                    0,
+                    c_ast.Decl(
+                        '__parent__', list(), list(), list(),
+                        c_ast.PtrDecl(list(), c_ast.TypeDecl(
+                            '__parent__', ['const'],
+                            c_ast.Struct('%s_VTable' % self.parent.name, None)
+                        )),
+                        None, None
+                    )
+                )
+            vtable_decl.decls.insert(
+                1,
+                c_ast.Decl(
+                    '__name__', list(), list(), list(),
+                    c_ast.PtrDecl(list(), c_ast.TypeDecl(
+                        '__name__', ['const'],
+                        c_ast.IdentifierType(['char'])
+                    )),
+                    None, None
+                )
+            )
+            vtable_name = '%s_vtable' % self.name
+            vtable_decl = c_ast.TypeDecl(vtable_name, ['const'], vtable_decl)
+            vtable_decl = c_ast.Decl(
+                vtable_name, list(), ['extern'], list(), vtable_decl, None, None,
+                self.ast_node.coord
+            )
             methods_decls.insert(0, vtable_decl)
         return methods_decls if not vtable else virtual_methods_decls
 
@@ -254,28 +294,48 @@ class StructTypeInfo(TypeInfo):
                     ),
                 None, None))
 
-    def fix_func_implementation(self, node, name):
+    def fix_func_implementation(self, node, name, ast_transformer):
         assert isinstance(node, c_ast.FuncDef)
         if name == 'construct':
             if node.body.block_items is None:
                 node.body.block_items = list()
-            vtable_values = OrderedDict()
-            class_list = [self]
-            tmp = self.parent
-            while tmp is not None:
-                class_list.append(tmp)
-                tmp = tmp.parent
-            class_list.reverse()
-            for cls in class_list:
-                for key, value in iteritems(cls.scope.symbols):
-                    if isinstance(value, VariableInfo):
-                        if isinstance(value.type, FuncTypeInfo):
-                            if 'virtual' in value.storage:
-                                if value.init is None:
-                                    vtable_values[key] = c_ast.ID('%s_%s' % (cls.name, key))
-                                else:
-                                    vtable_values[key] = value.init.ast_node
             vtable_name = '%s_vtable' % self.name
+            vtable_symbol = ast_transformer.scope.find_symbol(vtable_name)
+            if vtable_symbol is not None:
+                if 'extern' in vtable_symbol.storage:
+                    vtable_symbol = None
+            if vtable_symbol is None:
+                vtable_values = OrderedDict()
+                if (self.parent is None) or not self.parent.has_vtable:
+                    vtable_values['__parent__'] = c_ast.Constant('int', '0')
+                else:
+                    vtable_values['__parent__'] = c_ast.UnaryOp('&', c_ast.ID('%s_vtable' % self.parent.name))
+                vtable_values['__name__'] = c_ast.Constant('string', '\"%s\"' % self.name)
+                class_list = [self]
+                tmp = self.parent
+                while tmp is not None:
+                    class_list.append(tmp)
+                    tmp = tmp.parent
+                class_list.reverse()
+                for cls in class_list:
+                    for key, value in iteritems(cls.scope.symbols):
+                        if isinstance(value, VariableInfo):
+                            if isinstance(value.type, FuncTypeInfo):
+                                if 'virtual' in value.storage:
+                                    if value.init is None:
+                                        vtable_values[key] = c_ast.ID('%s_%s' % (cls.name, key))
+                                    else:
+                                        vtable_values[key] = value.init.ast_node
+                ast_transformer.scheduled_decls.insert(
+                    0,
+                    c_ast.Decl(
+                        vtable_name, ['const'], list(), list(),
+                        c_ast.TypeDecl(vtable_name, ['const'], c_ast.Struct('%s_VTable' % self.name, None)),
+                        c_ast.InitList([value for key, value in iteritems(vtable_values)]),
+                        None,
+                        node.coord
+                    )
+                )
             i, j = 0, 0
             while i < len(node.body.block_items):
                 n = node.body.block_items[i]
@@ -295,15 +355,6 @@ class StructTypeInfo(TypeInfo):
                                     j = i + 1
                 i += 1
             node.body.block_items.insert(
-                0,
-                c_ast.Decl(
-                    vtable_name, ['const'], ['static'], list(),
-                    c_ast.TypeDecl(vtable_name, ['const'], c_ast.Struct('%s_VTable' % self.name, None)),
-                    c_ast.InitList([value for key, value in iteritems(vtable_values)]),
-                    None
-                )
-            )
-            node.body.block_items.insert(
                 j + 1,
                 c_ast.Assignment(
                     '=',
@@ -311,7 +362,6 @@ class StructTypeInfo(TypeInfo):
                     c_ast.UnaryOp('&', c_ast.ID(vtable_name))
                 )
             )
-            pass
 
     def safe_cast(self, expression, type_info):
         return None

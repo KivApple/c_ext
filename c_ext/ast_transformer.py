@@ -15,7 +15,7 @@ from .expression import *
 class ASTTransformer(c_ast.NodeVisitor):
     def __init__(self):
         self.scope = None
-        self.methods_decls = list()
+        self.scheduled_decls = list()
         self.structs_with_declared_methods = set()
         self.node_path = list()
 
@@ -31,9 +31,9 @@ class ASTTransformer(c_ast.NodeVisitor):
         for decl in node.ext:
             self.visit(decl)
             new_ext.append(decl)
-            for method_decl in self.methods_decls:
+            for method_decl in self.scheduled_decls:
                 new_ext.append(method_decl)
-            self.methods_decls.clear()
+            self.scheduled_decls.clear()
         node.ext = new_ext
         self.scope = self.scope.parents[0]
 
@@ -92,7 +92,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     raise CodeSyntaxError('Unnamed classes is not supported', node.coord)
                 if self.scope.parents[0] is not None:
                     raise CodeSyntaxError('Classes can be declared only in toplevel scope', node.coord)
-                self.methods_decls += methods_decls
+                self.scheduled_decls += methods_decls
         return type_info
 
     def visit_TypeDecl(self, node):
@@ -294,7 +294,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             if isinstance(type_info, StructTypeInfo):
                 self.scope.parents.insert(0, type_info.scope)
                 self.scope.attrs.add('member')
-                type_info.fix_func_implementation(node, name_[1])
+                type_info.fix_func_implementation(node, name_[1], self)
             else:
                 raise CodeSyntaxError('%s is not a structure name' % name_[0], node.coord)
         self.visit(node.body)
