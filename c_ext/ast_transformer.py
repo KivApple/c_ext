@@ -232,7 +232,10 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_ID(self, node):
         assert isinstance(node, c_ast.ID)
-        free = (len(self.node_path) == 0) or not isinstance(self.node_path[-1], c_ast.StructRef)
+        free = True
+        if (len(self.node_path) > 0) and isinstance(self.node_path[-1], c_ast.StructRef):
+            if self.node_path[-1].name != node:
+                free = False
         if free and ('member' in self.scope.attrs):
             symbol_name = node.name
             symbol_scope = self.scope
