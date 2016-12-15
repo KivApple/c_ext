@@ -452,11 +452,9 @@ int A_i = 0;
 #line 19 "/home/kiv/projects/c_ext/tests/1.c"
 void A_construct(struct A *const this)
 {
-#line 20 "/home/kiv/projects/c_ext/tests/1.c"
-  A_i++;
 #line 19 "/home/kiv/projects/c_ext/tests/1.c"
   this->__vtable__ = & A_vtable;
-#line 21 "/home/kiv/projects/c_ext/tests/1.c"
+  A_i++;
   printf("A::construct(i == %i)\n", A_i);
 }
 
@@ -482,9 +480,10 @@ void B_construct(struct B *const this)
 {
 #line 36 "/home/kiv/projects/c_ext/tests/1.c"
   A_construct((struct A *const ) this);
-  printf("B::construct(i == %i)\n", A_i);
 #line 35 "/home/kiv/projects/c_ext/tests/1.c"
   this->__vtable__ = & B_vtable;
+#line 37 "/home/kiv/projects/c_ext/tests/1.c"
+  printf("B::construct(i == %i)\n", A_i);
 }
 
 #line 35 "/home/kiv/projects/c_ext/tests/1.c"
@@ -498,6 +497,13 @@ void A_test()
 
 B b;
 A *b_ptr = (struct A *) (& b);
+#line 52 "/home/kiv/projects/c_ext/tests/1.c"
+static int __lambda_0(int i, int j)
+{
+#line 53 "/home/kiv/projects/c_ext/tests/1.c"
+  return i + j;
+}
+
 #line 47 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
@@ -506,6 +512,19 @@ int main()
   b_ptr->__vtable__->print_text(b_ptr, "%s\n", "Hello world!");
   b_ptr->__vtable__->destroy(b_ptr);
   A_test();
+  int (*func)(int, int) = (int (*)(int, int)) __lambda_0;
+#line 55 "/home/kiv/projects/c_ext/tests/1.c"
+  func(10, 20);
+  switch (A_i)
+#line 56 "/home/kiv/projects/c_ext/tests/1.c"
+  {
+    case 0:
+      A_i = 1;
+      break;
+
+  }
+
+#line 61 "/home/kiv/projects/c_ext/tests/1.c"
   return 0;
 }
 

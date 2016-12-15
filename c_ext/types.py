@@ -326,8 +326,7 @@ class StructTypeInfo(TypeInfo):
                                         vtable_values[key] = c_ast.ID('%s_%s' % (cls.name, key))
                                     else:
                                         vtable_values[key] = value.init.ast_node
-                ast_transformer.scheduled_decls.insert(
-                    0,
+                ast_transformer.schedule_decl(
                     c_ast.Decl(
                         vtable_name, ['const'], list(), list(),
                         c_ast.TypeDecl(vtable_name, ['const'], c_ast.Struct('%s_VTable' % self.name, None)),
@@ -355,7 +354,7 @@ class StructTypeInfo(TypeInfo):
                                     j = i + 1
                 i += 1
             node.body.block_items.insert(
-                j + 1,
+                j,
                 c_ast.Assignment(
                     '=',
                     c_ast.StructRef(c_ast.ID('this'), '->', c_ast.ID('__vtable__')),
@@ -442,6 +441,11 @@ class FuncTypeInfo(TypeInfo):
                 arg_type_decl = c_ast.EllipsisParam()
             node.args.params.append(arg_type_decl)
         return node
+
+
+class LambdaFuncTypeInfo(FuncTypeInfo):
+    def __init__(self, return_type, args_types):
+        FuncTypeInfo.__init__(self, return_type, args_types)
 
 
 class PtrTypeInfo(TypeInfo):

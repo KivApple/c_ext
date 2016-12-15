@@ -6,7 +6,7 @@ import pycparser.c_ast as c_ast
 from pycparserext.ext_c_parser import TypeDeclExt, ArrayDeclExt, FuncDeclExt
 
 from .error import CodeSyntaxError
-from .parser import StructImproved
+from .parser import StructImproved, LambdaFunc
 from .scope import Scope
 from .types import *
 from .expression import *
@@ -18,6 +18,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.scheduled_decls = list()
         self.structs_with_declared_methods = set()
         self.node_path = list()
+        self.cur_lambda_id = 0
 
     def visit(self, node):
         self.node_path.append(node)
@@ -27,15 +28,30 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_FileAST(self, node):
         self.scope = Scope(self.scope)
-        new_ext = list()
-        for decl in node.ext:
-            self.visit(decl)
-            new_ext.append(decl)
-            for method_decl in self.scheduled_decls:
-                new_ext.append(method_decl)
-            self.scheduled_decls.clear()
-        node.ext = new_ext
+        i = 0
+        while i < len(node.ext):
+            i = self.visit_ExtDecl(node.ext, i)
         self.scope = self.scope.parents[0]
+
+    def visit_ExtDecl(self, lst, i):
+        scheduled_secls = self.scheduled_decls
+        self.scheduled_decls = list()
+        self.visit(lst[i])
+        j = 0
+        while j < len(self.scheduled_decls):
+            if self.scheduled_decls[j][1]:
+                lst.insert(i, self.scheduled_decls[j][0])
+                i = self.visit_ExtDecl(lst, i)
+            j += 1
+        i += 1
+        j = 0
+        while j < len(self.scheduled_decls):
+            if not self.scheduled_decls[j][1]:
+                lst.insert(i, self.scheduled_decls[j][0])
+                i = self.visit_ExtDecl(lst, i)
+            j += 1
+        self.scheduled_decls = scheduled_secls
+        return i
 
     def visit_IdentifierType(self, node):
         assert isinstance(node, c_ast.IdentifierType)
@@ -92,7 +108,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     raise CodeSyntaxError('Unnamed classes is not supported', node.coord)
                 if self.scope.parents[0] is not None:
                     raise CodeSyntaxError('Classes can be declared only in toplevel scope', node.coord)
-                self.scheduled_decls += methods_decls
+                self.schedule_decl(methods_decls)
         return type_info
 
     def visit_TypeDecl(self, node):
@@ -279,6 +295,49 @@ class ASTTransformer(c_ast.NodeVisitor):
         assert isinstance(node, c_ast.Assignment)
         return BinaryExpression(node.op, self.visit(node.lvalue), self.visit(node.rvalue), node)
 
+    def visit_Compound(self, node):
+        assert isinstance(node, c_ast.Compound)
+        if node.block_items is not None:
+            prev_scope = self.scope
+            self.scope = Scope(self.scope)
+            self.scope.attrs = prev_scope.attrs
+            i = 0
+            while i < len(node.block_items):
+                retval = self.visit(node.block_items[i])
+                if isinstance(retval, Expression):
+                    node.block_items[i] = retval.ast_node
+                i += 1
+            self.scope = prev_scope
+
+    def visit_If(self, node):
+        assert isinstance(node, c_ast.If)
+        value = self.visit(node.cond)
+        node.cond = value.ast_node
+        if node.iftrue is not None:
+            self.visit(node.iftrue)
+        if node.iffalse is not None:
+            self.visit(node.iffalse)
+
+    def visit_While(self, node):
+        assert isinstance(node, c_ast.While)
+        value = self.visit(node.cond)
+        node.cond = value.ast_node
+        if node.stmt is not None:
+            self.visit(node.stmt)
+
+    def visit_DoWhile(self, node):
+        assert isinstance(node, c_ast.DoWhile)
+        if node.stmt is not None:
+            self.visit(node.stmt)
+        value = self.visit(node.cond)
+        node.cond = value.ast_node
+
+    def visit_Switch(self, node):
+        assert isinstance(node, c_ast.Switch)
+        value = self.visit(node.cond)
+        node.cond = value.ast_node
+        self.visit(node.stmt)
+
     def visit_FuncDef(self, node):
         assert isinstance(node, c_ast.FuncDef)
         name_ = node.decl.name
@@ -299,3 +358,50 @@ class ASTTransformer(c_ast.NodeVisitor):
                 raise CodeSyntaxError('%s is not a structure name' % name_[0], node.coord)
         self.visit(node.body)
         self.scope = prev_scope
+
+    def visit_LambdaFunc(self, node):
+        assert isinstance(node, LambdaFunc)
+        func_name = '__lambda_%s' % (self.cur_lambda_id)
+        self.cur_lambda_id += 1
+        prev_scope = self.scope
+        self.scope = Scope(self.scope)
+        return_type_info = self.visit(node.return_type)
+        args_types = list()
+        for arg in node.args.params:
+            if isinstance(arg, c_ast.Decl):
+                args_types.append(self.visit(arg.type))
+            elif isinstance(arg, c_ast.Typename):
+                args_types.append(self.visit(arg.type))
+            elif isinstance(arg, c_ast.EllipsisParam):
+                args_types.append(None)
+        self.scope = prev_scope
+        node.return_type.type.declname = func_name
+        self.schedule_decl(
+            c_ast.FuncDef(
+                c_ast.Decl(
+                    func_name,
+                    list(),
+                    ['static'],
+                    list(),
+                    c_ast.FuncDecl(
+                        node.args,
+                        node.return_type.type
+                    ),
+                    None,
+                    None
+                ),
+                None,
+                node.body,
+                node.coord
+            ),
+            True
+        )
+        value = VariableExpression(func_name, self.scope, c_ast.ID(func_name))
+        value.type_info = LambdaFuncTypeInfo(return_type_info, args_types)
+        return value
+
+    def schedule_decl(self, decl, prepend=False):
+        if not isinstance(decl, (list, tuple)):
+            self.scheduled_decls.append((decl, prepend))
+        else:
+            self.scheduled_decls += [(d, prepend) for d in decl]

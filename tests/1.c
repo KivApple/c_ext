@@ -49,5 +49,14 @@ int main() {
     b_ptr->print_text("%s\n", "Hello world!");
     b_ptr->destroy();
     A::test();
+    int (*func)(int, int) = [](int i, int j) -> int {
+        return i + j;
+    };
+    func(10, 20);
+    switch (b.i) {
+        case 0:
+            A::i = 1;
+            break;
+    }
     return 0;
 }

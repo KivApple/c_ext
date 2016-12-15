@@ -140,6 +140,33 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         field = c_ast.ID(p[3], self._coord(p.lineno(3))) if isinstance(p[3], str) else p[3]
         p[0] = c_ast.StructRef(p[1], p[2], field, p[1].coord)
 
+    def p_lambda_func(self, p):
+        """ lambda_func : LBRACKET RBRACKET LPAREN parameter_type_list_opt RPAREN compound_statement
+                        | LBRACKET RBRACKET LPAREN parameter_type_list_opt RPAREN ARROW type_name compound_statement
+        """
+        if len(p) == 7:
+            p[0] = LambdaFunc(
+                p[4],
+                c_ast.Typename(
+                    None, list(),
+                    c_ast.TypeDecl(None, list(), c_ast.IdentifierType(['void']))
+                ),
+                p[6],
+                self._coord(p.lineno(1))
+            )
+        else:
+            p[0] = LambdaFunc(
+                p[4],
+                p[7],
+                p[8],
+                self._coord(p.lineno(1))
+            )
+
+    def p_primary_expression_6(self, p):
+        """ primary_expression : lambda_func
+        """
+        p[0] = p[1]
+
     def error(self, p, msg=None):
         if p:
             self._parse_error(
@@ -154,3 +181,21 @@ class StructImproved(c_ast.Struct):
     def __init__(self, name, decls, parent, coord=None):
         super(StructImproved, self).__init__(name, decls, coord)
         self.parent = parent
+
+
+class LambdaFunc(c_ast.Node):
+    def __init__(self, args, return_type, body, coord=None):
+        self.args = args
+        self.return_type = return_type
+        self.body = body
+        self.coord = coord
+
+    def children(self):
+        nodelist = list()
+        if self.return_type is not None:
+            nodelist.append(('return_type', self.return_type))
+        if self.args is not None:
+            nodelist.append(('args', self.args))
+        if self.body is not None:
+            nodelist.append(('body', self.body))
+        return nodelist
