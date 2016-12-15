@@ -976,6 +976,34 @@ void A_test()
 
 B b;
 A *b_ptr = (struct A *) (& b);
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+struct __lambda_0___ClosureData
+{
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+  void (*__fn__)(void *const __closure__);
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+  const char *s;
+};
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+static void __lambda_0__(void *const __closure__)
+{
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+  struct __lambda_0___ClosureData *const __closure_data__ = __closure__;
+  printf("%s\n", __closure_data__->s);
+}
+
+#line 48 "/home/kiv/projects/c_ext/tests/1.c"
+void (**make_print_func(const char *s))()
+{
+#line 48 "/home/kiv/projects/c_ext/tests/1.c"
+  struct __lambda_0___ClosureData *const __lambda_0___data = malloc(sizeof(struct __lambda_0___ClosureData));
+  __lambda_0___data->__fn__ = __lambda_0__;
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+  __lambda_0___data->s = s;
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+  return (void *) __lambda_0___data;
+}
+
 #line 54 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
@@ -984,16 +1012,12 @@ int main()
   b_ptr->__vtable__->print_text(b_ptr, "%s\n", "Hello world!");
   b_ptr->__vtable__->destroy(b_ptr);
   A_test();
-  switch (A_i)
-#line 59 "/home/kiv/projects/c_ext/tests/1.c"
-  {
-    case 0:
-      A_i = 1;
-      break;
-
-  }
-
-#line 64 "/home/kiv/projects/c_ext/tests/1.c"
+  void (**print_func)() = make_print_func("Test");
+#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+  void (**__tmp_closure_0__)() = print_func;
+#line 60 "/home/kiv/projects/c_ext/tests/1.c"
+  (* __tmp_closure_0__)(__tmp_closure_0__);
+  free(print_func);
   return 0;
 }
 

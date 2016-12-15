@@ -20,6 +20,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.structs_with_declared_methods = set()
         self.node_path = list()
         self.cur_lambda_id = 0
+        self.lambdas_capture_lists = dict()
 
     def visit(self, node):
         self.node_path.append(node)
@@ -258,6 +259,26 @@ class ASTTransformer(c_ast.NodeVisitor):
                         '->',
                         c_ast.StructRef(this_ptr.ast_node, '->', c_ast.ID(node.name, node.coord), node.coord)
                     )
+        if free:
+            i = len(self.node_path) - 1
+            while i >= 0:
+                n = self.node_path[i]
+                if isinstance(n, c_ast.FuncDef):
+                    capture_list = self.lambdas_capture_lists.get(n.decl.name, list())
+                    if node.name in capture_list:
+                        closure_ptr = VariableExpression(
+                            '__closure_data__',
+                            self.scope,
+                            c_ast.ID('__closure_data__')
+                        )
+                        return MemberExpression(
+                            closure_ptr,
+                            node.name,
+                            '->',
+                            c_ast.StructRef(closure_ptr.ast_node, '->', c_ast.ID(node.name))
+                        )
+                    break
+                i -= 1
         return VariableExpression(node.name, self.scope, node)
 
     def visit_UnaryOp(self, node):
@@ -387,6 +408,7 @@ class ASTTransformer(c_ast.NodeVisitor):
     def visit_LambdaFunc(self, node):
         assert isinstance(node, LambdaFunc)
         func_name = '__lambda_%s__' % (self.cur_lambda_id)
+        self.lambdas_capture_lists[func_name] = node.capture_list
         self.cur_lambda_id += 1
         prev_scope = self.scope
         self.scope = Scope(self.scope)

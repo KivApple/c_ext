@@ -197,6 +197,8 @@ class CallExpression(Expression):
             from .scope import Scope
             args.insert(0, VariableExpression(tmp_name, Scope(), tmp_ast_node))
             args[0].type_info = PtrTypeInfo(ScalarTypeInfo('void'))
+            if ast_node.args is None:
+                ast_node.args = c_ast.ExprList(list())
             ast_node.args.exprs.insert(0, tmp_ast_node)
             ast_node.name = c_ast.UnaryOp('*', ast_node.name, ast_node.name.coord)
         if isinstance(type_info, FuncTypeInfo):

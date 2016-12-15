@@ -45,21 +45,19 @@ void (A::test)() {
 B b;
 A *b_ptr = &b;
 
-/* void (**(make_print_func)(const char *s))() {
+void (**(make_print_func)(const char *s))() {
     return [s]() {
-        printf(s);
+        printf("%s\n", s);
     };
-} */
+}
 
 int main() {
     b.construct();
     b_ptr->print_text("%s\n", "Hello world!");
     b_ptr->destroy();
     A::test();
-    switch (b.i) {
-        case 0:
-            A::i = 1;
-            break;
-    }
+    void (**print_func)() = make_print_func("Test");
+    print_func();
+    free(print_func);
     return 0;
 }
