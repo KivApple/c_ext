@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 
 typedef struct A {
@@ -44,15 +45,17 @@ void (A::test)() {
 B b;
 A *b_ptr = &b;
 
+/* void (**(make_print_func)(const char *s))() {
+    return [s]() {
+        printf(s);
+    };
+} */
+
 int main() {
     b.construct();
     b_ptr->print_text("%s\n", "Hello world!");
     b_ptr->destroy();
     A::test();
-    int (*func)(int, int) = [](int i, int j) -> int {
-        return i + j;
-    };
-    func(10, 20);
     switch (b.i) {
         case 0:
             A::i = 1;

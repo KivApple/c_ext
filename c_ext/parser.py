@@ -35,6 +35,8 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         self.precedence.insert(0, ('left', 'DOUBLECOLON'))
         self.precedence = tuple(self.precedence)
 
+        self.OPT_RULES.append('lambda_capture_list')
+
         for rule in self.OPT_RULES:
             self._create_opt_rule(rule)
 
@@ -132,33 +134,44 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
             coord=self._coord(p.lineno(1)))
 
     def p_postfix_expression_4(self, p):
-        """ postfix_expression  : postfix_expression PERIOD identifier
-                                | postfix_expression PERIOD TYPEID
-                                | postfix_expression ARROW identifier
-                                | postfix_expression ARROW TYPEID
+        """ postfix_expression : postfix_expression PERIOD identifier
+                               | postfix_expression PERIOD TYPEID
+                               | postfix_expression ARROW identifier
+                               | postfix_expression ARROW TYPEID
         """
         field = c_ast.ID(p[3], self._coord(p.lineno(3))) if isinstance(p[3], str) else p[3]
         p[0] = c_ast.StructRef(p[1], p[2], field, p[1].coord)
 
-    def p_lambda_func(self, p):
-        """ lambda_func : LBRACKET RBRACKET LPAREN parameter_type_list_opt RPAREN compound_statement
-                        | LBRACKET RBRACKET LPAREN parameter_type_list_opt RPAREN ARROW type_name compound_statement
+    def p_lambda_capture_list(self, p):
+        """ lambda_capture_list : lambda_capture_list COMMA ID
+                                | ID
         """
-        if len(p) == 7:
+        if len(p) == 2:
+            p[0] = [p[1]]
+        else:
+            p[0] = p[1] + [p[3]]
+
+    def p_lambda_func(self, p):
+        """ lambda_func : LBRACKET lambda_capture_list_opt RBRACKET LPAREN parameter_type_list_opt RPAREN compound_statement
+                        | LBRACKET lambda_capture_list_opt RBRACKET LPAREN parameter_type_list_opt RPAREN ARROW type_name compound_statement
+        """
+        if len(p) == 8:
             p[0] = LambdaFunc(
-                p[4],
+                p[5],
                 c_ast.Typename(
                     None, list(),
                     c_ast.TypeDecl(None, list(), c_ast.IdentifierType(['void']))
                 ),
-                p[6],
+                p[7],
+                p[2],
                 self._coord(p.lineno(1))
             )
         else:
             p[0] = LambdaFunc(
-                p[4],
-                p[7],
+                p[5],
                 p[8],
+                p[9],
+                p[2],
                 self._coord(p.lineno(1))
             )
 
@@ -184,10 +197,11 @@ class StructImproved(c_ast.Struct):
 
 
 class LambdaFunc(c_ast.Node):
-    def __init__(self, args, return_type, body, coord=None):
+    def __init__(self, args, return_type, body, capture_list, coord=None):
         self.args = args
         self.return_type = return_type
         self.body = body
+        self.capture_list = capture_list
         self.coord = coord
 
     def children(self):

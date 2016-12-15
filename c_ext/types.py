@@ -21,7 +21,9 @@ class TypeInfo:
 
     @staticmethod
     def make_safe_cast(expression, type_info):
-        return expression.type_info.safe_cast(expression, type_info)
+        if expression.type_info:
+            return expression.type_info.safe_cast(expression, type_info)
+        return expression
 
     @staticmethod
     def is_compatible(src_type_info, dst_type_info):
@@ -444,8 +446,180 @@ class FuncTypeInfo(TypeInfo):
 
 
 class LambdaFuncTypeInfo(FuncTypeInfo):
-    def __init__(self, return_type, args_types):
+    def __init__(self, name, return_type, args_types, ast_node, ast_transformer):
         FuncTypeInfo.__init__(self, return_type, args_types)
+        self.name = name
+        self.ast_node = ast_node
+        self.ast_transformer = ast_transformer
+
+    def safe_cast(self, expression, type_info):
+        from .error import CodeSyntaxError
+        use_closure = False
+        if isinstance(type_info, PtrTypeInfo):
+            if isinstance(type_info.base_type, PtrTypeInfo):
+                use_closure = True
+        if not use_closure and self.ast_node.capture_list:
+            raise CodeSyntaxError('Cannot convert closure to function pointer', self.ast_node.coord)
+        params = self.ast_node.args.params if self.ast_node.args else list()
+        body = self.ast_node.body.block_items
+        if use_closure:
+            params = [c_ast.Decl(
+                '__closure__', list(), list(), list(),
+                c_ast.PtrDecl(
+                    ['const'],
+                    c_ast.TypeDecl(
+                        '__closure__',
+                        list(),
+                        c_ast.IdentifierType(['void'])
+                    )
+                ),
+                None, None
+            )] + params
+            closure_data_type_name = '%s_ClosureData' % self.name
+            closure_struct_members = [
+                c_ast.Decl(
+                    '__fn__',
+                    list(), list(), list(),
+                    c_ast.PtrDecl(
+                        list(),
+                        c_ast.FuncDecl(
+                            c_ast.ParamList(params),
+                            c_ast.TypeDecl(
+                                '__fn__',
+                                self.ast_node.return_type.type.quals,
+                                self.ast_node.return_type.type.type
+                            )
+                        )
+                    ),
+                    None, None
+                )
+            ]
+            for capture_item in self.ast_node.capture_list:
+                symbol = self.ast_transformer.scope.find_symbol(capture_item)
+                if isinstance(symbol, VariableInfo):
+                    type_decl = symbol.type.to_ast(False)
+                    tmp = type_decl
+                    while not isinstance(tmp, c_ast.TypeDecl):
+                        tmp = tmp.type
+                    tmp.declname = capture_item
+                    closure_struct_members.append(
+                        c_ast.Decl(
+                            capture_item,
+                            list(), list(), list(),
+                            type_decl,
+                            None, None
+                        )
+                    )
+                else:
+                    raise CodeSyntaxError('Variable %s not found' % capture_item, self.ast_node.coord)
+            self.ast_transformer.schedule_decl(
+                c_ast.Struct(
+                    closure_data_type_name,
+                    closure_struct_members,
+                    self.ast_node.coord
+                ), True
+            )
+            body = [
+                c_ast.Decl(
+                    '__closure_data__',
+                    list(), list(), list(),
+                    c_ast.PtrDecl(
+                        ['const'],
+                        c_ast.TypeDecl(
+                            '__closure_data__',
+                            list(),
+                            c_ast.Struct(closure_data_type_name, None)
+                        )
+                    ),
+                    c_ast.ID('__closure__'), None
+                )
+            ] + body
+            closure_data_name = '%s_data' % self.name
+            self.ast_transformer.schedule_tmp_decl(
+                c_ast.Decl(
+                    closure_data_name,
+                    list(), list(), list(),
+                    c_ast.PtrDecl(
+                        ['const'],
+                        c_ast.TypeDecl(
+                            closure_data_name,
+                            list(),
+                            c_ast.Struct(closure_data_type_name, None)
+                        )
+                    ),
+                    c_ast.FuncCall(
+                        c_ast.ID('malloc'),
+                        c_ast.ExprList([
+                            c_ast.UnaryOp('sizeof', c_ast.Struct(closure_data_type_name, None))
+                        ])
+                    ), None
+                )
+            )
+            self.ast_transformer.schedule_tmp_decl(
+                c_ast.Assignment(
+                    '=',
+                    c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID('__fn__')),
+                    c_ast.ID(self.name),
+                    self.ast_node.coord
+                )
+            )
+            for capture_item in self.ast_node.capture_list:
+                self.ast_transformer.schedule_tmp_decl(
+                    c_ast.Assignment(
+                        '=',
+                        c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID(capture_item)),
+                        c_ast.ID(capture_item),
+                        self.ast_node.coord
+                    )
+                )
+        self.ast_transformer.schedule_decl(
+            c_ast.FuncDef(
+                c_ast.Decl(
+                    self.name,
+                    list(),
+                    ['static'],
+                    list(),
+                    c_ast.FuncDecl(
+                        c_ast.ParamList(params),
+                        c_ast.TypeDecl(
+                            self.name,
+                            self.ast_node.return_type.type.quals,
+                            self.ast_node.return_type.type.type
+                        )
+                    ),
+                    None,
+                    None
+                ),
+                None,
+                c_ast.Compound(body),
+                self.ast_node.coord
+            ),
+            True
+        )
+        from .scope import Scope
+        from .expression import VariableExpression
+        if use_closure:
+            return VariableExpression(
+                closure_data_name,
+                Scope(),
+                c_ast.Cast(
+                    c_ast.Typename(
+                        None, list(),
+                        c_ast.PtrDecl(
+                            list(),
+                            c_ast.TypeDecl(
+                                None,
+                                list(),
+                                c_ast.IdentifierType(['void'])
+                            )
+                        )
+                    ),
+                    c_ast.ID(closure_data_name),
+                    self.ast_node.coord
+                )
+            )
+        return VariableExpression(self.name, Scope(),
+                                  c_ast.ID(self.name, self.ast_node.coord))
 
 
 class PtrTypeInfo(TypeInfo):

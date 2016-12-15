@@ -164,19 +164,48 @@ class MemberExpression(Expression):
 
 
 class CallExpression(Expression):
-    def __init__(self, value, args, ast_node=None):
+    cur_closure_func_id = 0
+
+    def __init__(self, value, args, ast_node, ast_transformer):
+        self.ast_tranformer = ast_transformer
         self.value = value
         self.args = args
         ast_node.name = value.ast_node
         type_info = self.value.type_info
+        is_closure = False
         if isinstance(type_info, PtrTypeInfo):
             type_info = type_info.base_type
+        if isinstance(type_info, PtrTypeInfo):
+            type_info = type_info.base_type
+            tmp_name = '__tmp_closure_%s__' % CallExpression.cur_closure_func_id
+            CallExpression.cur_closure_func_id += 1
+            type_decl = PtrTypeInfo(PtrTypeInfo(type_info)).to_ast(False)
+            type_decl.type.type.type.declname = tmp_name
+            ast_transformer.schedule_tmp_decl(
+                c_ast.Decl(
+                    tmp_name,
+                    list(),
+                    list(),
+                    list(),
+                    type_decl,
+                    value.ast_node,
+                    None
+                )
+            )
+            tmp_ast_node = c_ast.ID(tmp_name, None)
+            ast_node.name = tmp_ast_node
+            from .scope import Scope
+            args.insert(0, VariableExpression(tmp_name, Scope(), tmp_ast_node))
+            args[0].type_info = PtrTypeInfo(ScalarTypeInfo('void'))
+            ast_node.args.exprs.insert(0, tmp_ast_node)
+            ast_node.name = c_ast.UnaryOp('*', ast_node.name, ast_node.name.coord)
         if isinstance(type_info, FuncTypeInfo):
             args_types = [arg.type_info for arg in args]
             i = 0
             while i < len(args_types):
                 src_arg_type = args_types[i]
-                assert i < len(type_info.args_types)
+                if i >= len(type_info.args_types):
+                    break
                 dst_arg_type = type_info.args_types[i]
                 if dst_arg_type is None:
                     break
@@ -196,3 +225,8 @@ class CallExpression(Expression):
 
     def __str__(self):
         return '%s(%s)' % (self.value, ', '.join([str(arg) for arg in self.args]))
+
+
+class LambdaFuncExpression(Expression):
+    def __init__(self, type_info, ast_node):
+        Expression.__init__(self, type_info, ast_node)

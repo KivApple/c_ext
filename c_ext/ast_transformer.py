@@ -16,6 +16,7 @@ class ASTTransformer(c_ast.NodeVisitor):
     def __init__(self):
         self.scope = None
         self.scheduled_decls = list()
+        self.scheduled_tmp_decls = list()
         self.structs_with_declared_methods = set()
         self.node_path = list()
         self.cur_lambda_id = 0
@@ -292,7 +293,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             for arg in node.args.exprs:
                 args.append(self.visit(arg))
         func = self.visit(node.name)
-        return CallExpression(func, args, node)
+        return CallExpression(func, args, node, self)
 
     def visit_Assignment(self, node):
         assert isinstance(node, c_ast.Assignment)
@@ -309,6 +310,10 @@ class ASTTransformer(c_ast.NodeVisitor):
                 retval = self.visit(node.block_items[i])
                 if isinstance(retval, Expression):
                     node.block_items[i] = retval.ast_node
+                for decl in self.scheduled_tmp_decls:
+                    node.block_items.insert(i, decl)
+                    i += 1
+                self.scheduled_tmp_decls.clear()
                 i += 1
             self.scope = prev_scope
 
@@ -341,6 +346,23 @@ class ASTTransformer(c_ast.NodeVisitor):
         node.cond = value.ast_node
         self.visit(node.stmt)
 
+    def visit_Return(self, node):
+        assert isinstance(node, c_ast.Return)
+        if node.expr:
+            value = self.visit(node.expr)
+            i = len(self.node_path) - 1
+            while i >= 0:
+                n = self.node_path[i]
+                if isinstance(n, c_ast.FuncDef):
+                    symbol = self.scope.find_symbol(n.decl.name)
+                    assert isinstance(symbol, VariableInfo)
+                    assert isinstance(symbol.type, FuncTypeInfo)
+                    type_info = symbol.type.return_type
+                    value = TypeInfo.make_safe_cast(value, type_info)
+                    break
+                i -= 1
+            node.expr = value.ast_node
+
     def visit_FuncDef(self, node):
         assert isinstance(node, c_ast.FuncDef)
         name_ = node.decl.name
@@ -364,47 +386,29 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_LambdaFunc(self, node):
         assert isinstance(node, LambdaFunc)
-        func_name = '__lambda_%s' % (self.cur_lambda_id)
+        func_name = '__lambda_%s__' % (self.cur_lambda_id)
         self.cur_lambda_id += 1
         prev_scope = self.scope
         self.scope = Scope(self.scope)
         return_type_info = self.visit(node.return_type)
         args_types = list()
-        for arg in node.args.params:
-            if isinstance(arg, c_ast.Decl):
-                args_types.append(self.visit(arg.type))
-            elif isinstance(arg, c_ast.Typename):
-                args_types.append(self.visit(arg.type))
-            elif isinstance(arg, c_ast.EllipsisParam):
-                args_types.append(None)
+        if node.args:
+            for arg in node.args.params:
+                if isinstance(arg, c_ast.Decl):
+                    args_types.append(self.visit(arg.type))
+                elif isinstance(arg, c_ast.Typename):
+                    args_types.append(self.visit(arg.type))
+                elif isinstance(arg, c_ast.EllipsisParam):
+                    args_types.append(None)
         self.scope = prev_scope
-        node.return_type.type.declname = func_name
-        self.schedule_decl(
-            c_ast.FuncDef(
-                c_ast.Decl(
-                    func_name,
-                    list(),
-                    ['static'],
-                    list(),
-                    c_ast.FuncDecl(
-                        node.args,
-                        node.return_type.type
-                    ),
-                    None,
-                    None
-                ),
-                None,
-                node.body,
-                node.coord
-            ),
-            True
-        )
-        value = VariableExpression(func_name, self.scope, c_ast.ID(func_name))
-        value.type_info = LambdaFuncTypeInfo(return_type_info, args_types)
-        return value
+        type_info = LambdaFuncTypeInfo(func_name, return_type_info, args_types, node, self)
+        return LambdaFuncExpression(type_info, node)
 
     def schedule_decl(self, decl, prepend=False):
         if not isinstance(decl, (list, tuple)):
             self.scheduled_decls.append((decl, prepend))
         else:
             self.scheduled_decls += [(d, prepend) for d in decl]
+
+    def schedule_tmp_decl(self, decl):
+        self.scheduled_tmp_decls.append(decl)
