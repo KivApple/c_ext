@@ -565,6 +565,9 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
                 )
             ]
             for capture_item in self.ast_node.capture_list:
+                link = capture_item[0] == '&'
+                if link:
+                    capture_item = capture_item[1:]
                 symbol = self.ast_transformer.scope.find_symbol(capture_item)
                 if isinstance(symbol, VariableInfo):
                     type_decl = symbol.type.to_decl()
@@ -576,7 +579,7 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
                         c_ast.Decl(
                             capture_item,
                             list(), list(), list(),
-                            type_decl,
+                            c_ast.PtrDecl(list(), type_decl) if link else type_decl,
                             None, None
                         )
                     )
@@ -634,11 +637,17 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
                 )
             )
             for capture_item in self.ast_node.capture_list:
+                link = capture_item[0] == '&'
+                if link:
+                    capture_item = capture_item[1:]
+                value = c_ast.ID(capture_item)
+                if link:
+                    value = c_ast.UnaryOp('&', value)
                 self.ast_transformer.schedule_tmp_decl(
                     c_ast.Assignment(
                         '=',
                         c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID(capture_item)),
-                        c_ast.ID(capture_item),
+                        value,
                         self.ast_node.coord
                     )
                 )

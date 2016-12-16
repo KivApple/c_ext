@@ -266,18 +266,25 @@ class ASTTransformer(c_ast.NodeVisitor):
                 n = self.node_path[i]
                 if isinstance(n, c_ast.FuncDef):
                     capture_list = self.lambdas_capture_lists.get(n.decl.name, list())
-                    if node.name in capture_list:
-                        closure_ptr = VariableExpression(
-                            '__closure_data__',
-                            self.scope,
-                            c_ast.ID('__closure_data__')
-                        )
-                        return MemberExpression(
-                            closure_ptr,
-                            node.name,
-                            '->',
-                            c_ast.StructRef(closure_ptr.ast_node, '->', c_ast.ID(node.name))
-                        )
+                    for capture_item in capture_list:
+                        link = capture_item[0] == '&'
+                        if link:
+                            capture_item = capture_item[1:]
+                        if capture_item == node.name:
+                            closure_ptr = VariableExpression(
+                                '__closure_data__',
+                                self.scope,
+                                c_ast.ID('__closure_data__')
+                            )
+                            val = MemberExpression(
+                                closure_ptr,
+                                node.name,
+                                '->',
+                                c_ast.StructRef(closure_ptr.ast_node, '->', c_ast.ID(node.name))
+                            )
+                            if link:
+                                val = UnaryExpression('*', val, c_ast.UnaryOp('*', val.ast_node))
+                            return val
                     break
                 i -= 1
         return VariableExpression(node.name, self.scope, node)

@@ -1037,7 +1037,7 @@ struct __lambda_1___ClosureData
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
   void (*__fn__)(void *const __closure__, int elem);
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
-  int *sum_ptr;
+  int *sum;
 };
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
 static void __lambda_1__(void *const __closure__, int elem)
@@ -1048,10 +1048,10 @@ static void __lambda_1__(void *const __closure__, int elem)
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
     void (*__fn__)(void *const __closure__, int elem);
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
-    int *sum_ptr;
+    int *sum;
   } *const __closure_data__ = __closure__;
 #line 77 "/home/kiv/projects/c_ext/tests/1.c"
-  * __closure_data__->sum_ptr += elem;
+  * __closure_data__->sum += elem;
 }
 
 #line 65 "/home/kiv/projects/c_ext/tests/1.c"
@@ -1071,14 +1071,12 @@ int main()
 #line 74 "/home/kiv/projects/c_ext/tests/1.c"
   int nums[] = {1, 2, 3, 4};
   int sum = 0;
-#line 75 "/home/kiv/projects/c_ext/tests/1.c"
-  int *sum_ptr = & sum;
 #line 65 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_1___ClosureData *const __lambda_1___data = malloc(sizeof(struct __lambda_1___ClosureData));
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_1___data->__fn__ = __lambda_1__;
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
-  __lambda_1___data->sum_ptr = sum_ptr;
+  __lambda_1___data->sum = & sum;
 #line 76 "/home/kiv/projects/c_ext/tests/1.c"
   run_foreach_element(nums, 4, (void *) __lambda_1___data, 1);
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"

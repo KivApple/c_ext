@@ -142,9 +142,18 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         field = c_ast.ID(p[3], self._coord(p.lineno(3))) if isinstance(p[3], str) else p[3]
         p[0] = c_ast.StructRef(p[1], p[2], field, p[1].coord)
 
+    def p_lambda_capture_item(self, p):
+        """ lambda_capture_item : ID
+                                | AND ID
+        """
+        if len(p) == 3:
+            p[0] = '&%s' % p[2]
+        else:
+            p[0] = p[1]
+
     def p_lambda_capture_list(self, p):
-        """ lambda_capture_list : lambda_capture_list COMMA ID
-                                | ID
+        """ lambda_capture_list : lambda_capture_list COMMA lambda_capture_item
+                                | lambda_capture_item
         """
         if len(p) == 2:
             p[0] = [p[1]]

@@ -72,9 +72,9 @@ int main() {
     free(print_func);
 
     int nums[] = { 1, 2, 3, 4 };
-    int sum = 0, *sum_ptr = &sum;
-    run_foreach_element(nums, 4, [sum_ptr](int elem) {
-        *sum_ptr += elem;
+    int sum = 0;
+    run_foreach_element(nums, 4, [&sum](int elem) {
+        sum += elem;
     }, true);
     printf("Sum = %i\n", sum);
     return 0;
