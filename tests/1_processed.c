@@ -882,71 +882,71 @@ extern int rpmatch(const char *__response) __attribute__((__nothrow__, __leaf__,
 extern int getsubopt(char **__restrict __optionp, char *const *__restrict __tokens, char **__restrict __valuep) __attribute__((__nothrow__, __leaf__, __nonnull__(1, 2, 3)));
 #line 911 "/usr/include/stdlib.h"
 extern int getloadavg(double __loadavg[], int __nelem) __attribute__((__nothrow__, __leaf__, __nonnull__(1)));
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+#line 6 "/home/kiv/projects/c_ext/tests/1.c"
 typedef struct A
 {
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+#line 6 "/home/kiv/projects/c_ext/tests/1.c"
   const struct A_VTable
   {
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+#line 6 "/home/kiv/projects/c_ext/tests/1.c"
     const void *__parent__;
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+#line 6 "/home/kiv/projects/c_ext/tests/1.c"
     const char *__name__;
-#line 8 "/home/kiv/projects/c_ext/tests/1.c"
+#line 9 "/home/kiv/projects/c_ext/tests/1.c"
     void (*destroy)(struct A *const this);
     void (*print_text)(struct A *const this, const char *fmt, ...);
   } *__vtable__;
 } A;
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+#line 6 "/home/kiv/projects/c_ext/tests/1.c"
 extern const struct A_VTable A_vtable;
 extern int A_i;
 extern void A_construct(struct A *const this);
 extern void A_destroy(struct A *const this);
-#line 10 "/home/kiv/projects/c_ext/tests/1.c"
+#line 11 "/home/kiv/projects/c_ext/tests/1.c"
 extern void A_test();
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
 typedef struct B
 {
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
   const struct B_VTable
   {
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
     const struct A_VTable *__parent__;
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
     const char *__name__;
-#line 8 "/home/kiv/projects/c_ext/tests/1.c"
+#line 9 "/home/kiv/projects/c_ext/tests/1.c"
     void (*destroy)(struct A *const this);
-#line 15 "/home/kiv/projects/c_ext/tests/1.c"
+#line 16 "/home/kiv/projects/c_ext/tests/1.c"
     void (*print_text)(struct B *const this, const char *fmt, ...);
   } *__vtable__;
 } B;
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+#line 14 "/home/kiv/projects/c_ext/tests/1.c"
 extern const struct B_VTable B_vtable;
 extern void B_construct(struct B *const this);
 extern void B_print_text(struct B *const this, const char *fmt, ...);
-#line 18 "/home/kiv/projects/c_ext/tests/1.c"
+#line 19 "/home/kiv/projects/c_ext/tests/1.c"
 int A_i = 0;
-#line 20 "/home/kiv/projects/c_ext/tests/1.c"
+#line 21 "/home/kiv/projects/c_ext/tests/1.c"
 void A_construct(struct A *const this)
 {
-#line 20 "/home/kiv/projects/c_ext/tests/1.c"
+#line 21 "/home/kiv/projects/c_ext/tests/1.c"
   this->__vtable__ = & A_vtable;
   A_i++;
   printf("A::construct(i == %i)\n", A_i);
 }
 
-#line 20 "/home/kiv/projects/c_ext/tests/1.c"
+#line 21 "/home/kiv/projects/c_ext/tests/1.c"
 const struct A_VTable A_vtable = {0, "A", A_destroy, 0};
-#line 25 "/home/kiv/projects/c_ext/tests/1.c"
+#line 26 "/home/kiv/projects/c_ext/tests/1.c"
 void A_destroy(struct A *const this)
 {
-#line 26 "/home/kiv/projects/c_ext/tests/1.c"
+#line 27 "/home/kiv/projects/c_ext/tests/1.c"
   printf("Object destroyed\n");
 }
 
 void B_print_text(struct B *const this, const char *fmt, ...)
 {
-#line 30 "/home/kiv/projects/c_ext/tests/1.c"
+#line 31 "/home/kiv/projects/c_ext/tests/1.c"
   va_list args;
   __builtin_va_start(args, fmt);
   vprintf(fmt, args);
@@ -955,74 +955,134 @@ void B_print_text(struct B *const this, const char *fmt, ...)
 
 void B_construct(struct B *const this)
 {
-#line 37 "/home/kiv/projects/c_ext/tests/1.c"
-  A_construct((struct A *const ) this);
-#line 36 "/home/kiv/projects/c_ext/tests/1.c"
-  this->__vtable__ = & B_vtable;
 #line 38 "/home/kiv/projects/c_ext/tests/1.c"
+  A_construct((struct A *const ) this);
+#line 37 "/home/kiv/projects/c_ext/tests/1.c"
+  this->__vtable__ = & B_vtable;
+#line 39 "/home/kiv/projects/c_ext/tests/1.c"
   printf("B::construct(i == %i)\n", A_i);
 }
 
-#line 36 "/home/kiv/projects/c_ext/tests/1.c"
+#line 37 "/home/kiv/projects/c_ext/tests/1.c"
 const struct B_VTable B_vtable = {& A_vtable, "B", A_destroy, B_print_text};
-#line 41 "/home/kiv/projects/c_ext/tests/1.c"
+#line 42 "/home/kiv/projects/c_ext/tests/1.c"
 void A_test()
 {
-#line 42 "/home/kiv/projects/c_ext/tests/1.c"
+#line 43 "/home/kiv/projects/c_ext/tests/1.c"
   printf("Test!\n");
 }
 
 B b;
 A *b_ptr = (struct A *) (& b);
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
 struct __lambda_0___ClosureData
 {
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
   void (*__fn__)(void *const __closure__);
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
   const char *s;
 };
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
 static void __lambda_0__(void *const __closure__)
 {
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_0___ClosureData
   {
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
     void (*__fn__)(void *const __closure__);
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
     const char *s;
   } *const __closure_data__ = __closure__;
-#line 50 "/home/kiv/projects/c_ext/tests/1.c"
+#line 51 "/home/kiv/projects/c_ext/tests/1.c"
   printf("%s\n", __closure_data__->s);
 }
 
-#line 48 "/home/kiv/projects/c_ext/tests/1.c"
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
 void (**make_print_func(const char *s))()
 {
-#line 48 "/home/kiv/projects/c_ext/tests/1.c"
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_0___ClosureData *const __lambda_0___data = malloc(sizeof(struct __lambda_0___ClosureData));
   __lambda_0___data->__fn__ = __lambda_0__;
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_0___data->s = s;
-#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
   return (void *) __lambda_0___data;
 }
 
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 55 "/home/kiv/projects/c_ext/tests/1.c"
+void run_foreach_element(int *array, size_t size, void (**func)(void *, int), _Bool destory_func)
+{
+#line 56 "/home/kiv/projects/c_ext/tests/1.c"
+  int i;
+  for (i = 0; i < size; ++ i)
+#line 57 "/home/kiv/projects/c_ext/tests/1.c"
+  {
+#line 57 "/home/kiv/projects/c_ext/tests/1.c"
+    void (**__tmp_closure_0__)(void *, int) = func;
+    (* __tmp_closure_0__)(__tmp_closure_0__, array[i]);
+  }
+
+#line 60 "/home/kiv/projects/c_ext/tests/1.c"
+  if (destory_func)
+#line 60 "/home/kiv/projects/c_ext/tests/1.c"
+  {
+    free(func);
+  }
+
+}
+
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+struct __lambda_1___ClosureData
+{
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+  void (*__fn__)(void *const __closure__, int elem);
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+  int *sum_ptr;
+};
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+static void __lambda_1__(void *const __closure__, int elem)
+{
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+  struct __lambda_1___ClosureData
+  {
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+    void (*__fn__)(void *const __closure__, int elem);
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+    int *sum_ptr;
+  } *const __closure_data__ = __closure__;
+#line 77 "/home/kiv/projects/c_ext/tests/1.c"
+  * __closure_data__->sum_ptr += elem;
+}
+
+#line 65 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
-#line 55 "/home/kiv/projects/c_ext/tests/1.c"
+#line 66 "/home/kiv/projects/c_ext/tests/1.c"
   B_construct(& b);
   b_ptr->__vtable__->print_text(b_ptr, "%s\n", "Hello world!");
   b_ptr->__vtable__->destroy(b_ptr);
   A_test();
   void (**print_func)() = make_print_func("Test");
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
-  void (**__tmp_closure_0__)() = print_func;
-#line 60 "/home/kiv/projects/c_ext/tests/1.c"
-  (* __tmp_closure_0__)(__tmp_closure_0__);
+#line 65 "/home/kiv/projects/c_ext/tests/1.c"
+  void (**__tmp_closure_1__)() = print_func;
+#line 71 "/home/kiv/projects/c_ext/tests/1.c"
+  (* __tmp_closure_1__)(__tmp_closure_1__);
   free(print_func);
+#line 74 "/home/kiv/projects/c_ext/tests/1.c"
+  int nums[] = {1, 2, 3, 4};
+  int sum = 0;
+#line 75 "/home/kiv/projects/c_ext/tests/1.c"
+  int *sum_ptr = & sum;
+#line 65 "/home/kiv/projects/c_ext/tests/1.c"
+  struct __lambda_1___ClosureData *const __lambda_1___data = malloc(sizeof(struct __lambda_1___ClosureData));
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+  __lambda_1___data->__fn__ = __lambda_1__;
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+  __lambda_1___data->sum_ptr = sum_ptr;
+#line 76 "/home/kiv/projects/c_ext/tests/1.c"
+  run_foreach_element(nums, 4, (void *) __lambda_1___data, 1);
+#line 79 "/home/kiv/projects/c_ext/tests/1.c"
+  printf("Sum = %i\n", sum);
   return 0;
 }
 

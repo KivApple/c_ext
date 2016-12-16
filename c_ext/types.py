@@ -389,20 +389,8 @@ class StructTypeInfo(TypeInfo):
             i, j = 0, 0
             while i < len(node.body.block_items):
                 n = node.body.block_items[i]
-                if isinstance(n, c_ast.FuncCall):
-                    if isinstance(n.name, c_ast.StructRef):
-                        if isinstance(n.name.name, c_ast.ID):
-                            if n.name.name.name == 'this':
-                                if isinstance(n.name.field, c_ast.ID):
-                                    if isinstance(n.name.field.name, tuple):
-                                        if len(n.name.field.name) == 2:
-                                            if n.name.field.name[1] == 'construct':
-                                                j = i + 1
-                    elif isinstance(n.name, c_ast.ID):
-                        if isinstance(n.name.name, tuple):
-                            if len(n.name.name) == 2:
-                                if n.name.name[1] == 'construct':
-                                    j = i + 1
+                if self.contains_construct_call(n):
+                    j = i + 1
                 i += 1
             node.body.block_items.insert(
                 j,
@@ -424,6 +412,39 @@ class StructTypeInfo(TypeInfo):
                 return self.parent.inherited_from(type_info)
         return False
 
+    @staticmethod
+    def contains_construct_call(n):
+        if isinstance(n, c_ast.UnaryOp):
+            return StructTypeInfo.contains_construct_call(n.expr)
+        if isinstance(n, c_ast.BinaryOp):
+            return StructTypeInfo.contains_construct_call(n.left) or StructTypeInfo.contains_construct_call(n.right)
+        if isinstance(n, c_ast.Assignment):
+            return StructTypeInfo.contains_construct_call(n.lvalue) or \
+                StructTypeInfo.contains_construct_call(n.rvalue)
+        if isinstance(n, c_ast.ArrayRef):
+            return StructTypeInfo.contains_construct_call(n.name) or \
+                StructTypeInfo.contains_construct_call(n.subscript)
+        if isinstance(n, c_ast.StructRef):
+            return StructTypeInfo.contains_construct_call(n.name)
+        if isinstance(n, c_ast.FuncCall):
+            if isinstance(n.name, c_ast.StructRef):
+                if isinstance(n.name.name, c_ast.ID):
+                    if n.name.name.name == 'this':
+                        if isinstance(n.name.field, c_ast.ID):
+                            if isinstance(n.name.field.name, tuple):
+                                if len(n.name.field.name) == 2:
+                                    if n.name.field.name[1] == 'construct':
+                                        return True
+            elif isinstance(n.name, c_ast.ID):
+                if isinstance(n.name.name, tuple):
+                    if len(n.name.name) == 2:
+                        if n.name.name[1] == 'construct':
+                            return True
+            if n.args is not None:
+                for arg in n.args.exprs:
+                    if StructTypeInfo.contains_construct_call(arg):
+                        return True
+        return False
 
 class ArrayTypeInfo(TypeInfo):
     def __init__(self, base_type, dim):
@@ -437,7 +458,7 @@ class ArrayTypeInfo(TypeInfo):
     def safe_cast(self, expression, type_info):
         if isinstance(type_info, PtrTypeInfo):
             tmp = PtrTypeInfo(self.base_type)
-            return tmp.make_safe_cast(expression, type_info)
+            return tmp.safe_cast(expression, type_info)
         return None
 
     def to_decl(self):

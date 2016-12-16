@@ -126,7 +126,7 @@ class SubscriptExpression(Expression):
         self.array = array
         self.index = index
         ast_node.name = array.ast_node
-        assert isinstance(array.type_info, ArrayTypeInfo)
+        assert isinstance(array.type_info, (ArrayTypeInfo, PtrTypeInfo))
         Expression.__init__(self, array.type_info.base_type, ast_node)
 
     def __str__(self):

@@ -97,7 +97,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             type_info.scope = Scope()
             type_info.scope.attrs.add('struct')
             if node.name is not None:
-                self.scope.add_symbol('%s %s' % (kind, node.name), type_info)
+                self.root_scope.add_symbol('%s %s' % (kind, node.name), type_info)
         if node.decls is not None:
             prev_scope = self.scope
             self.scope = type_info.scope
@@ -301,7 +301,7 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_ArrayRef(self, node):
         assert isinstance(node, c_ast.ArrayRef)
-        return SubscriptExpression(self.visit(node.name), self.visit(node.subscript))
+        return SubscriptExpression(self.visit(node.name), self.visit(node.subscript), node)
 
     def visit_StructRef(self, node):
         assert isinstance(node, c_ast.StructRef)
@@ -403,6 +403,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                 type_info.fix_func_implementation(node, name_[1], self)
             else:
                 raise CodeSyntaxError('%s is not a structure name' % name_[0], node.coord)
+        self.split_async_func(node)
         self.visit(node.body)
         self.scope = prev_scope
 
@@ -436,3 +437,6 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def schedule_tmp_decl(self, decl):
         self.scheduled_tmp_decls.append(decl)
+
+    def split_async_func(self, node):
+        pass
