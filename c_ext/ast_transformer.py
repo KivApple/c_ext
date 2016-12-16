@@ -272,9 +272,9 @@ class ASTTransformer(c_ast.NodeVisitor):
                             capture_item = capture_item[1:]
                         if capture_item == node.name:
                             closure_ptr = VariableExpression(
-                                '__closure_data__',
+                                LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
                                 self.scope,
-                                c_ast.ID('__closure_data__')
+                                c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME)
                             )
                             val = MemberExpression(
                                 closure_ptr,
@@ -416,7 +416,7 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_LambdaFunc(self, node):
         assert isinstance(node, LambdaFunc)
-        func_name = '__lambda_%s__' % (self.cur_lambda_id)
+        func_name = LambdaFuncTypeInfo.LAMBDA_FUNC_NAME_FMT % self.cur_lambda_id
         self.lambdas_capture_lists[func_name] = node.capture_list
         self.cur_lambda_id += 1
         prev_scope = self.scope

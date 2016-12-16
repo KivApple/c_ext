@@ -56,6 +56,12 @@ class ScalarTypeInfo(TypeInfo):
 
 
 class StructTypeInfo(TypeInfo):
+    VTABLE_TYPE_NAME_FMT = '%s_VTable'
+    VTABLE_NAME_FMT = '%s_vtable'
+    VTABLE_LINK_NAME = '__vtable'
+    VTABLE_PARENT_LINK_NAME = '__parent'
+    VTABLE_NAME_LINK_NAME = '__name'
+
     next_id = 0
 
     def __init__(self, kind, name, ast_transformer):
@@ -137,29 +143,29 @@ class StructTypeInfo(TypeInfo):
         )
 
     def initialize_vtable_fields_dict(self, fields):
-        fields['__parent__'] = c_ast.Decl(
-            '__parent__',
+        fields[self.VTABLE_PARENT_LINK_NAME] = c_ast.Decl(
+            self.VTABLE_PARENT_LINK_NAME,
             list(), list(), list(),
             c_ast.PtrDecl(
                 list(),
                 c_ast.TypeDecl(
-                    '__parent__',
+                    self.VTABLE_PARENT_LINK_NAME,
                     ['const'],
                     c_ast.Struct(
-                        '%s_VTable' % self.parent.name,
+                        self.VTABLE_TYPE_NAME_FMT % self.parent.name,
                         None
                     ) if self.parent is not None else c_ast.IdentifierType(['void'])
                 )
             ),
             None, None
         )
-        fields['__name__'] = c_ast.Decl(
-            '__name__',
+        fields[self.VTABLE_NAME_LINK_NAME] = c_ast.Decl(
+            self.VTABLE_NAME_LINK_NAME,
             list(), list(), list(),
             c_ast.PtrDecl(
                 list(),
                 c_ast.TypeDecl(
-                    '__name__',
+                    self.VTABLE_NAME_LINK_NAME,
                     ['const'],
                     c_ast.IdentifierType(['char'])
                 )
@@ -207,15 +213,16 @@ class StructTypeInfo(TypeInfo):
                 fields[decl.name] = decl
         if self.has_vtable:
             vtable_fields = self.get_vtable_fields()
-            fields['__vtable__'] = c_ast.Decl(
-                '__vtable__',
+            fields[self.VTABLE_LINK_NAME] = c_ast.Decl(
+                self.VTABLE_LINK_NAME,
                 list(), list(), list(),
                 c_ast.PtrDecl(
                     list(),
                     c_ast.TypeDecl(
-                        '__vtable__',
+                        self.VTABLE_LINK_NAME,
                         ['const'],
-                        c_ast.Struct('%s_VTable' % self.name, [decl for name, decl in iteritems(vtable_fields)])
+                        c_ast.Struct(self.VTABLE_TYPE_NAME_FMT % self.name,
+                                     [decl for name, decl in iteritems(vtable_fields)])
                     )
                 ),
                 None, None
@@ -230,7 +237,7 @@ class StructTypeInfo(TypeInfo):
             if include_parent:
                 decls = self.parent.get_toplevel_decls()
         if self.has_vtable:
-            vtable_name = '%s_vtable' % self.name
+            vtable_name = self.VTABLE_NAME_FMT % self.name
             decls.append(
                 c_ast.Decl(
                     vtable_name,
@@ -238,7 +245,7 @@ class StructTypeInfo(TypeInfo):
                     c_ast.TypeDecl(
                         vtable_name,
                         ['const'],
-                        c_ast.Struct('%s_VTable' % self.name, None)
+                        c_ast.Struct(self.VTABLE_TYPE_NAME_FMT % self.name, None)
                     ),
                     None, None,
                     self.ast_node.coord
@@ -282,7 +289,7 @@ class StructTypeInfo(TypeInfo):
                 node.name = c_ast.ID(full_name)
             else:
                 node.name = c_ast.StructRef(
-                    c_ast.StructRef(expression.ast_node.name, '->', c_ast.ID('__vtable__')),
+                    c_ast.StructRef(expression.ast_node.name, '->', c_ast.ID(self.VTABLE_LINK_NAME)),
                     '->', c_ast.ID(expression.member_name)
                 )
             if 'static' not in symbol.storage:
@@ -350,7 +357,7 @@ class StructTypeInfo(TypeInfo):
         if name == 'construct':
             if node.body.block_items is None:
                 node.body.block_items = list()
-            vtable_name = '%s_vtable' % self.name
+            vtable_name = self.VTABLE_NAME_FMT % self.name
             vtable_symbol = ast_transformer.scope.find_symbol(vtable_name)
             if vtable_symbol is not None:
                 if 'extern' in vtable_symbol.storage:
@@ -358,10 +365,11 @@ class StructTypeInfo(TypeInfo):
             if vtable_symbol is None:
                 vtable_values = OrderedDict()
                 if (self.parent is None) or not self.parent.has_vtable:
-                    vtable_values['__parent__'] = c_ast.Constant('int', '0')
+                    vtable_values[self.VTABLE_PARENT_LINK_NAME] = c_ast.Constant('int', '0')
                 else:
-                    vtable_values['__parent__'] = c_ast.UnaryOp('&', c_ast.ID('%s_vtable' % self.parent.name))
-                vtable_values['__name__'] = c_ast.Constant('string', '\"%s\"' % self.name)
+                    vtable_values[self.VTABLE_PARENT_LINK_NAME] = c_ast.UnaryOp('&',
+                                                                c_ast.ID(self.VTABLE_NAME_FMT % self.parent.name))
+                vtable_values[self.VTABLE_NAME_LINK_NAME] = c_ast.Constant('string', '\"%s\"' % self.name)
                 class_list = [self]
                 tmp = self.parent
                 while tmp is not None:
@@ -380,7 +388,8 @@ class StructTypeInfo(TypeInfo):
                 ast_transformer.schedule_decl(
                     c_ast.Decl(
                         vtable_name, ['const'], list(), list(),
-                        c_ast.TypeDecl(vtable_name, ['const'], c_ast.Struct('%s_VTable' % self.name, None)),
+                        c_ast.TypeDecl(vtable_name, ['const'],
+                                       c_ast.Struct(self.VTABLE_TYPE_NAME_FMT % self.name, None)),
                         c_ast.InitList([value for key, value in iteritems(vtable_values)]),
                         None,
                         node.coord
@@ -396,7 +405,7 @@ class StructTypeInfo(TypeInfo):
                 j,
                 c_ast.Assignment(
                     '=',
-                    c_ast.StructRef(c_ast.ID('this'), '->', c_ast.ID('__vtable__')),
+                    c_ast.StructRef(c_ast.ID('this'), '->', c_ast.ID(self.VTABLE_LINK_NAME)),
                     c_ast.UnaryOp('&', c_ast.ID(vtable_name))
                 )
             )
@@ -516,6 +525,13 @@ class FuncTypeInfo(TypeInfo):
 
 
 class LambdaFuncTypeInfo(FuncTypeInfo):
+    LAMBDA_FUNC_NAME_FMT = '__lambda_%s'
+    CLOSURE_LINK_NAME = '__closure'
+    CLOSURE_DATA_TYPE_NAME_FMT = '%s_ClosureData'
+    CLOSURE_DATA_LINK_NAME = '__closure_data'
+    CLOSURE_FUNC_LINK_NAME = '__fn'
+    CLOSURE_DATA_NAME_FMT = '%s_data'
+
     def __init__(self, name, return_type, args_types, ast_node, ast_transformer):
         FuncTypeInfo.__init__(self, return_type, args_types)
         self.name = name
@@ -534,28 +550,28 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
         body = self.ast_node.body.block_items
         if use_closure:
             params = [c_ast.Decl(
-                '__closure__', list(), list(), list(),
+                self.CLOSURE_LINK_NAME, list(), list(), list(),
                 c_ast.PtrDecl(
                     ['const'],
                     c_ast.TypeDecl(
-                        '__closure__',
+                        self.CLOSURE_LINK_NAME,
                         list(),
                         c_ast.IdentifierType(['void'])
                     )
                 ),
                 None, None
             )] + params
-            closure_data_type_name = '%s_ClosureData' % self.name
+            closure_data_type_name = self.CLOSURE_DATA_TYPE_NAME_FMT % self.name
             closure_struct_members = [
                 c_ast.Decl(
-                    '__fn__',
+                    self.CLOSURE_FUNC_LINK_NAME,
                     list(), list(), list(),
                     c_ast.PtrDecl(
                         list(),
                         c_ast.FuncDecl(
                             c_ast.ParamList(params),
                             c_ast.TypeDecl(
-                                '__fn__',
+                                self.CLOSURE_FUNC_LINK_NAME,
                                 self.ast_node.return_type.type.quals,
                                 self.ast_node.return_type.type.type
                             )
@@ -594,20 +610,20 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
             )
             body = [
                 c_ast.Decl(
-                    '__closure_data__',
+                    self.CLOSURE_DATA_LINK_NAME,
                     list(), list(), list(),
                     c_ast.PtrDecl(
                         ['const'],
                         c_ast.TypeDecl(
-                            '__closure_data__',
+                            self.CLOSURE_DATA_LINK_NAME,
                             list(),
                             c_ast.Struct(closure_data_type_name, None)
                         )
                     ),
-                    c_ast.ID('__closure__'), None
+                    c_ast.ID(self.CLOSURE_LINK_NAME), None
                 )
             ] + body
-            closure_data_name = '%s_data' % self.name
+            closure_data_name = self.CLOSURE_DATA_NAME_FMT % self.name
             self.ast_transformer.schedule_tmp_decl(
                 c_ast.Decl(
                     closure_data_name,
@@ -631,7 +647,7 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
             self.ast_transformer.schedule_tmp_decl(
                 c_ast.Assignment(
                     '=',
-                    c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID('__fn__')),
+                    c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID(self.CLOSURE_FUNC_LINK_NAME)),
                     c_ast.ID(self.name),
                     self.ast_node.coord
                 )
