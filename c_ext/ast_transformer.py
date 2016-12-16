@@ -15,6 +15,7 @@ from .expression import *
 class ASTTransformer(c_ast.NodeVisitor):
     def __init__(self):
         self.scope = None
+        self.root_scope = None
         self.scheduled_decls = list()
         self.scheduled_tmp_decls = list()
         self.structs_with_declared_methods = set()
@@ -29,13 +30,15 @@ class ASTTransformer(c_ast.NodeVisitor):
         return retval
 
     def visit_FileAST(self, node):
-        self.scope = Scope(self.scope)
+        self.root_scope = Scope()
+        self.scope = self.root_scope
         i = 0
         while i < len(node.ext):
-            i = self.visit_ExtDecl(node.ext, i)
-        self.scope = self.scope.parents[0]
+            i = self.visit_DeclByIndex(node.ext, i)
+        self.scope = None
+        self.root_scope = None
 
-    def visit_ExtDecl(self, lst, i):
+    def visit_DeclByIndex(self, lst, i):
         scheduled_secls = self.scheduled_decls
         self.scheduled_decls = list()
         self.visit(lst[i])
@@ -43,14 +46,14 @@ class ASTTransformer(c_ast.NodeVisitor):
         while j < len(self.scheduled_decls):
             if self.scheduled_decls[j][1]:
                 lst.insert(i, self.scheduled_decls[j][0])
-                i = self.visit_ExtDecl(lst, i)
+                i = self.visit_DeclByIndex(lst, i)
             j += 1
         i += 1
         j = 0
         while j < len(self.scheduled_decls):
             if not self.scheduled_decls[j][1]:
                 lst.insert(i, self.scheduled_decls[j][0])
-                i = self.visit_ExtDecl(lst, i)
+                i = self.visit_DeclByIndex(lst, i)
             j += 1
         self.scheduled_decls = scheduled_secls
         return i
@@ -90,13 +93,16 @@ class ASTTransformer(c_ast.NodeVisitor):
         if node.name is not None:
             type_info = self.scope.find_symbol('%s %s' % (kind, node.name))
         if type_info is None:
-            type_info = StructTypeInfo(kind, node.name)
+            type_info = StructTypeInfo(kind, node.name, self)
             type_info.scope = Scope()
+            type_info.scope.attrs.add('struct')
             if node.name is not None:
                 self.scope.add_symbol('%s %s' % (kind, node.name), type_info)
-        if (node.decls is not None) and (len(type_info.scope.parents) == 0):
+        if node.decls is not None:
             prev_scope = self.scope
             self.scope = type_info.scope
+            self.scope.symbols.clear()
+            self.scope.parents.clear()
             self.scope.parents.append(parent.scope if parent is not None else None)
             self.scope.parents.append(prev_scope)
             self.generic_visit(node)
@@ -104,20 +110,13 @@ class ASTTransformer(c_ast.NodeVisitor):
             type_info.scope = self.scope
             type_info.ast_node = node
             self.scope = prev_scope
-            methods_decls = type_info.make_methods_decls()
-            if methods_decls:
-                if type_info.name is None:
-                    raise CodeSyntaxError('Unnamed classes is not supported', node.coord)
-                if self.scope.parents[0] is not None:
-                    raise CodeSyntaxError('Classes can be declared only in toplevel scope', node.coord)
-                self.schedule_decl(methods_decls)
         return type_info
 
     def visit_TypeDecl(self, node):
         assert isinstance(node, (c_ast.TypeDecl, TypeDeclExt))
         type_info = self.visit(node.type)
         if isinstance(node.type, c_ast.Struct):
-            node.type = type_info.to_ast(node.type.decls is not None)
+            node.type = type_info.to_decl()
         type_info = type_info.clone()
         type_info.quals += node.quals
         return type_info
@@ -191,7 +190,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             struct_type_info.fix_member_implementation(node, member_name)
         type_info = self.visit(node.type)
         if isinstance(node.type, c_ast.Struct):
-            node.type = type_info.to_ast(node.type.decls is not None)
+            node.type = type_info.to_decl()
         var_info = None
         if node.name is not None:
             symbol = self.scope.find_symbol(node.name, True)
@@ -210,6 +209,8 @@ class ASTTransformer(c_ast.NodeVisitor):
                 if fail:
                     raise CodeSyntaxError('Symbol %s already defined in current scope' % node.name, node.coord)
             var_info = VariableInfo(node.name, type_info, node.storage, coord=node.coord)
+            if 'struct' in self.scope.attrs:
+                var_info.attrs.add('member')
             self.scope.add_symbol(node.name, var_info)
             if node.init is not None:
                 init = self.visit(node.init)
@@ -428,6 +429,7 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def schedule_decl(self, decl, prepend=False):
         if not isinstance(decl, (list, tuple)):
+            assert decl is not None
             self.scheduled_decls.append((decl, prepend))
         else:
             self.scheduled_decls += [(d, prepend) for d in decl]

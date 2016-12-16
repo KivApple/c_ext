@@ -179,7 +179,7 @@ class CallExpression(Expression):
             type_info = type_info.base_type
             tmp_name = '__tmp_closure_%s__' % CallExpression.cur_closure_func_id
             CallExpression.cur_closure_func_id += 1
-            type_decl = PtrTypeInfo(PtrTypeInfo(type_info)).to_ast(False)
+            type_decl = PtrTypeInfo(PtrTypeInfo(type_info)).to_decl()
             type_decl.type.type.type.declname = tmp_name
             ast_transformer.schedule_tmp_decl(
                 c_ast.Decl(

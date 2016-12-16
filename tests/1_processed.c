@@ -886,46 +886,44 @@ extern int getloadavg(double __loadavg[], int __nelem) __attribute__((__nothrow_
 typedef struct A
 {
 #line 5 "/home/kiv/projects/c_ext/tests/1.c"
-  const struct A_VTable *__vtable__;
+  const struct A_VTable
+  {
+#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+    const void *__parent__;
+#line 5 "/home/kiv/projects/c_ext/tests/1.c"
+    const char *__name__;
+#line 8 "/home/kiv/projects/c_ext/tests/1.c"
+    void (*destroy)(struct A *const this);
+    void (*print_text)(struct A *const this, const char *fmt, ...);
+  } *__vtable__;
 } A;
 #line 5 "/home/kiv/projects/c_ext/tests/1.c"
-extern const struct A_VTable
-{
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
-  const void *__parent__;
-#line 5 "/home/kiv/projects/c_ext/tests/1.c"
-  const char *__name__;
-#line 8 "/home/kiv/projects/c_ext/tests/1.c"
-  void (*destroy)(struct A *);
-  void (*print_text)(struct A *, const char *, ...);
-} A_vtable;
-#line 6 "/home/kiv/projects/c_ext/tests/1.c"
+extern const struct A_VTable A_vtable;
 extern int A_i;
-void A_construct(struct A *);
-void A_destroy(struct A *);
+extern void A_construct(struct A *const this);
+extern void A_destroy(struct A *const this);
 #line 10 "/home/kiv/projects/c_ext/tests/1.c"
-void A_test();
+extern void A_test();
 #line 13 "/home/kiv/projects/c_ext/tests/1.c"
 typedef struct B
 {
 #line 13 "/home/kiv/projects/c_ext/tests/1.c"
-  const struct B_VTable *__vtable__;
+  const struct B_VTable
+  {
+#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+    const struct A_VTable *__parent__;
+#line 13 "/home/kiv/projects/c_ext/tests/1.c"
+    const char *__name__;
+#line 8 "/home/kiv/projects/c_ext/tests/1.c"
+    void (*destroy)(struct A *const this);
+#line 15 "/home/kiv/projects/c_ext/tests/1.c"
+    void (*print_text)(struct B *const this, const char *fmt, ...);
+  } *__vtable__;
 } B;
 #line 13 "/home/kiv/projects/c_ext/tests/1.c"
-extern const struct B_VTable
-{
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
-  const struct A_VTable *__parent__;
-#line 13 "/home/kiv/projects/c_ext/tests/1.c"
-  const char *__name__;
-#line 8 "/home/kiv/projects/c_ext/tests/1.c"
-  void (*destroy)(struct A *);
-#line 15 "/home/kiv/projects/c_ext/tests/1.c"
-  void (*print_text)(struct B *, const char *, ...);
-} B_vtable;
-#line 14 "/home/kiv/projects/c_ext/tests/1.c"
-void B_construct(struct B *);
-void B_print_text(struct B *, const char *, ...);
+extern const struct B_VTable B_vtable;
+extern void B_construct(struct B *const this);
+extern void B_print_text(struct B *const this, const char *fmt, ...);
 #line 18 "/home/kiv/projects/c_ext/tests/1.c"
 int A_i = 0;
 #line 20 "/home/kiv/projects/c_ext/tests/1.c"
@@ -988,7 +986,14 @@ struct __lambda_0___ClosureData
 static void __lambda_0__(void *const __closure__)
 {
 #line 49 "/home/kiv/projects/c_ext/tests/1.c"
-  struct __lambda_0___ClosureData *const __closure_data__ = __closure__;
+  struct __lambda_0___ClosureData
+  {
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+    void (*__fn__)(void *const __closure__);
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
+    const char *s;
+  } *const __closure_data__ = __closure__;
+#line 50 "/home/kiv/projects/c_ext/tests/1.c"
   printf("%s\n", __closure_data__->s);
 }
 

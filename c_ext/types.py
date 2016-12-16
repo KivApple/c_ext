@@ -16,7 +16,7 @@ class TypeInfo:
     def safe_cast(self, expression, type_info):
         return None
 
-    def to_ast(self):
+    def to_decl(self):
         return None
 
     @staticmethod
@@ -49,7 +49,7 @@ class ScalarTypeInfo(TypeInfo):
                 return expression
         return None
 
-    def to_ast(self, verbose=True):
+    def to_decl(self):
         node = c_ast.IdentifierType(self.name.split(' '))
         node = c_ast.TypeDecl(None, self.quals, node)
         return node
@@ -58,8 +58,9 @@ class ScalarTypeInfo(TypeInfo):
 class StructTypeInfo(TypeInfo):
     next_id = 0
 
-    def __init__(self, kind, name):
+    def __init__(self, kind, name, ast_transformer):
         TypeInfo.__init__(self)
+        self.ast_transformer = ast_transformer
         self.kind = kind
         self.name = name
         self.parent = None
@@ -77,148 +78,196 @@ class StructTypeInfo(TypeInfo):
             self.scope
         )
 
-    def to_ast(self, verbose=True, node=None):
-        node = c_ast.Struct(self.name, list() if verbose else None, self.ast_node.coord if verbose else None)\
-            if node is None else node
-        if verbose and (self.scope is not None):
-            if self.parent is not None:
-                assert not self.parent.quals
-                self.parent.to_ast(True, node)
-                if self.parent.has_vtable:
-                    self.has_vtable = True
-            for decl in self.ast_node.decls:
-                if isinstance(decl, c_ast.Decl):
-                    if 'static' in decl.storage:
-                        continue
-                    if isinstance(decl.type, c_ast.FuncDecl):
-                        if 'virtual' in decl.storage:
-                            if not self.has_vtable:
-                                self.has_vtable = True
-                        continue
-                node.decls.append(decl)
-        if self.has_vtable and node.decls is not None:
-            vtable_decl = c_ast.Decl(
-                '__vtable__', list(), list(), list(),
-                c_ast.PtrDecl(list(), c_ast.TypeDecl(
-                    '__vtable__', ['const'],
-                    c_ast.Struct('%s_VTable' % self.name, None)
-                )),
+    def make_this_ptr(self):
+        return c_ast.Decl(
+            'this',
+            list(), list(), list(),
+            c_ast.PtrDecl(
+                ['const'],
+                c_ast.TypeDecl(
+                    'this',
+                    list(),
+                    c_ast.Struct(self.name, None)
+                )
+            ),
+            None, None
+        )
+
+    def make_method_prototype(self, decl):
+        assert isinstance(decl, c_ast.Decl)
+        name = '%s_%s' % (self.name, decl.name)
+        decl = copy.deepcopy(decl)
+        decl.name = name
+        tmp = decl.type
+        while hasattr(tmp, 'type'):
+            if isinstance(tmp, c_ast.TypeDecl):
+                if tmp.declname is not None:
+                    tmp.declname = name
+                    break
+            elif isinstance(tmp, c_ast.FuncDecl):
+                if 'static' not in decl.storage:
+                    if tmp.args is None:
+                        tmp.args = c_ast.ParamList(list())
+                    if (len(tmp.args.params) == 0) or (tmp.args.params[0].name != 'this'):
+                        tmp.args.params.insert(0, self.make_this_ptr())
+            tmp = tmp.type
+        decl.storage.clear()
+        decl.storage = ['extern']
+        return decl
+
+    def make_vtable_field(self, decl):
+        assert isinstance(decl, c_ast.Decl)
+        assert isinstance(decl.type, c_ast.FuncDecl)
+        assert 'virtual' in decl.storage
+        args = decl.type.args if copy.deepcopy(decl.type.args) else c_ast.ParamList(list())
+        if (len(args.params) == 0) or (args.params[0].name != 'this'):
+            args.params.insert(0, self.make_this_ptr())
+        return c_ast.Decl(
+            decl.name,
+            list(), list(), list(),
+            c_ast.PtrDecl(
+                list(),
+                c_ast.FuncDecl(
+                    args,
+                    decl.type.type
+                )
+            ),
+            None, None,
+            decl.coord
+        )
+
+    def initialize_vtable_fields_dict(self, fields):
+        fields['__parent__'] = c_ast.Decl(
+            '__parent__',
+            list(), list(), list(),
+            c_ast.PtrDecl(
+                list(),
+                c_ast.TypeDecl(
+                    '__parent__',
+                    ['const'],
+                    c_ast.Struct(
+                        '%s_VTable' % self.parent.name,
+                        None
+                    ) if self.parent is not None else c_ast.IdentifierType(['void'])
+                )
+            ),
+            None, None
+        )
+        fields['__name__'] = c_ast.Decl(
+            '__name__',
+            list(), list(), list(),
+            c_ast.PtrDecl(
+                list(),
+                c_ast.TypeDecl(
+                    '__name__',
+                    ['const'],
+                    c_ast.IdentifierType(['char'])
+                )
+            ),
+            None, None
+        )
+
+    def get_vtable_fields(self, include_parent=True):
+        if self.ast_node is None:
+            return None
+        fields = OrderedDict()
+        if self.parent is not None:
+            if include_parent:
+                fields = self.parent.get_vtable_fields()
+                self.has_vtable = self.parent.has_vtable
+        self.initialize_vtable_fields_dict(fields)
+        for decl in self.ast_node.decls:
+            if isinstance(decl, c_ast.Decl):
+                if isinstance(decl.type, c_ast.FuncDecl):
+                    if 'virtual' in decl.storage:
+                        args = decl.type.args if decl.type.args else c_ast.ParamList(list())
+                        if (len(args.params) == 0) or (args.params[0].name != 'this'):
+                            args.params.insert(0, self.make_this_ptr())
+                        new_decl = self.make_vtable_field(decl)
+                        fields[new_decl.name] = new_decl
+        self.has_vtable = len(fields) > 2
+        return fields if self.has_vtable else None
+
+    def get_fields(self, include_parent=True):
+        if self.ast_node is None:
+            return None
+        fields = OrderedDict()
+        if self.parent is not None:
+            if include_parent:
+                fields = self.parent.get_fields()
+            self.has_vtable = self.parent.has_vtable
+        for decl in self.ast_node.decls:
+            if isinstance(decl, c_ast.Decl):
+                if isinstance(decl.type, c_ast.FuncDecl):
+                    if 'virtual' in decl.storage:
+                        self.has_vtable = True
+                    continue
+                if 'static' in decl.storage:
+                    continue
+                fields[decl.name] = decl
+        if self.has_vtable:
+            vtable_fields = self.get_vtable_fields()
+            fields['__vtable__'] = c_ast.Decl(
+                '__vtable__',
+                list(), list(), list(),
+                c_ast.PtrDecl(
+                    list(),
+                    c_ast.TypeDecl(
+                        '__vtable__',
+                        ['const'],
+                        c_ast.Struct('%s_VTable' % self.name, [decl for name, decl in iteritems(vtable_fields)])
+                    )
+                ),
                 None, None
             )
-            if (self.parent is not None) and self.parent.has_vtable:
-                i = 0
-                while i < len(node.decls):
-                    if node.decls[i].name == '__vtable__':
-                        node.decls[i] = vtable_decl
-                        break
-                    i += 1
-            else:
-                node.decls.append(vtable_decl)
-        node = c_ast.TypeDecl(None, self.quals, node, node.coord)
-        return node
+        return fields
 
-    def make_methods_decls(self, vtable=False):
-        methods_decls = list()
-        virtual_methods_decls = list()
-        for name, symbol in iteritems(self.scope.symbols):
-            if isinstance(symbol, VariableInfo):
-                type_info = symbol.type
-                if isinstance(type_info, FuncTypeInfo):
-                    assert self.name is not None
-                    virtual = 'virtual' in symbol.storage
-                    if vtable and not virtual:
-                        continue
-                    full_name = '%s_%s' % (self.name, name)
-                    func_type_decl = type_info.to_ast(False)
-                    func_type_decl.type.declname = full_name
-                    if 'static' not in symbol.storage:
-                        func_type_decl.args.params.insert(0,
-                            c_ast.Typename(None, list(),
-                                c_ast.PtrDecl(list(),
-                                    c_ast.TypeDecl(None, list(), c_ast.Struct(self.name, None))
-                                )
-                            )
-                        )
-                    elif len(func_type_decl.args.params) == 0:
-                        func_type_decl.args = None
-                    if symbol.init is None:
-                        methods_decls.append(c_ast.Decl(full_name, list(), list(), list(),
-                                                        func_type_decl, None, None, symbol.coord))
-                    if virtual:
-                        func_type_decl = c_ast.FuncDecl(
-                            func_type_decl.args,
-                            c_ast.TypeDecl(name, func_type_decl.type.quals, func_type_decl.type.type)
-                        )
-                        func_type_decl = c_ast.PtrDecl(list(), func_type_decl)
-                        virtual_methods_decls.append(c_ast.Decl(name, list(), list(), list(),
-                                                                func_type_decl, None, None, symbol.coord))
-                elif 'static' in symbol.storage:
-                    full_name = '%s_%s' % (self.name, name)
-                    type_decl = type_info.to_ast(False)
-                    tmp = type_decl
-                    while not isinstance(tmp, c_ast.TypeDecl):
-                        tmp = tmp.type
-                    if isinstance(tmp.type, c_ast.FuncDecl):
-                        tmp = tmp.type
-                        while not isinstance(tmp, c_ast.TypeDecl):
-                            tmp = tmp.type
-                        assert isinstance(tmp, c_ast.TypeDecl)
-                        tmp.declname = full_name
-                    else:
-                        tmp.declname = full_name
-                    methods_decls.append(c_ast.Decl(full_name, list(), ['extern'], list(),
-                                                    type_decl, None, None, symbol.coord))
-                symbol.attrs.add('member')
+    def get_toplevel_decls(self, include_parent=False):
+        if self.ast_node is None:
+            return None
+        decls = list()
         if self.parent is not None:
-            virtual_methods_decls = self.parent.make_methods_decls(True) + virtual_methods_decls
-        if (len(virtual_methods_decls) > 0) and not vtable:
-            virtual_decls = OrderedDict()
-            for decl in virtual_methods_decls:
-                virtual_decls[decl.name] = decl
-            vtable_decl = c_ast.Struct('%s_VTable' % self.name, [decl for name, decl in iteritems(virtual_decls)])
-            if self.parent is None:
-                vtable_decl.decls.insert(
-                    0,
-                    c_ast.Decl(
-                        '__parent__', list(), list(), list(),
-                        c_ast.PtrDecl(list(), c_ast.TypeDecl(
-                            '__parent__', ['const'],
-                            c_ast.IdentifierType(['void'])
-                        )),
-                        None, None
-                    )
-                )
-            else:
-                vtable_decl.decls.insert(
-                    0,
-                    c_ast.Decl(
-                        '__parent__', list(), list(), list(),
-                        c_ast.PtrDecl(list(), c_ast.TypeDecl(
-                            '__parent__', ['const'],
-                            c_ast.Struct('%s_VTable' % self.parent.name, None)
-                        )),
-                        None, None
-                    )
-                )
-            vtable_decl.decls.insert(
-                1,
-                c_ast.Decl(
-                    '__name__', list(), list(), list(),
-                    c_ast.PtrDecl(list(), c_ast.TypeDecl(
-                        '__name__', ['const'],
-                        c_ast.IdentifierType(['char'])
-                    )),
-                    None, None
-                )
-            )
+            if include_parent:
+                decls = self.parent.get_toplevel_decls()
+        if self.has_vtable:
             vtable_name = '%s_vtable' % self.name
-            vtable_decl = c_ast.TypeDecl(vtable_name, ['const'], vtable_decl)
-            vtable_decl = c_ast.Decl(
-                vtable_name, list(), ['extern'], list(), vtable_decl, None, None,
-                self.ast_node.coord
+            decls.append(
+                c_ast.Decl(
+                    vtable_name,
+                    list(), ['extern'], list(),
+                    c_ast.TypeDecl(
+                        vtable_name,
+                        ['const'],
+                        c_ast.Struct('%s_VTable' % self.name, None)
+                    ),
+                    None, None,
+                    self.ast_node.coord
+                )
             )
-            methods_decls.insert(0, vtable_decl)
-        return methods_decls if not vtable else virtual_methods_decls
+        for decl in self.ast_node.decls:
+            if isinstance(decl.type, c_ast.FuncDecl):
+                if 'virtual' in decl.storage:
+                    if decl.init is not None:
+                        continue
+            if isinstance(decl.type, c_ast.FuncDecl) or 'static' in decl.storage:
+                decls.append(self.make_method_prototype(decl))
+        return decls
+
+    def to_decl(self):
+        flag_name = 'struct %s declared' % self.name
+        make_full_decls = self.name is None
+        if not make_full_decls:
+            make_full_decls = flag_name not in self.ast_transformer.root_scope.attrs
+        if self.ast_node is None:
+            make_full_decls = False
+        if make_full_decls:
+            self.ast_transformer.root_scope.attrs.add(flag_name)
+            node = c_ast.Struct(self.name, list(), self.ast_node.coord)
+            node.decls = [decl for name, decl in iteritems(self.get_fields())]
+            toplevel_decls = self.get_toplevel_decls()
+            self.ast_transformer.schedule_decl(toplevel_decls)
+            return c_ast.TypeDecl(None, self.quals, node)
+        return c_ast.TypeDecl(None, self.quals, c_ast.Struct(self.name, None))
 
     def fix_method_call(self, node, expression):
         from .expression import MemberExpression
@@ -391,8 +440,8 @@ class ArrayTypeInfo(TypeInfo):
             return tmp.make_safe_cast(expression, type_info)
         return None
 
-    def to_ast(self, verbose=True):
-        return c_ast.PtrDecl(list(), self.base_type.to_ast(verbose))
+    def to_decl(self):
+        return c_ast.PtrDecl(list(), self.base_type.to_decl())
 
 
 class FuncTypeInfo(TypeInfo):
@@ -426,18 +475,18 @@ class FuncTypeInfo(TypeInfo):
                         i += 1
                     if compatible:
                         from .expression import CastExpression
-                        dst_type_decl = c_ast.Typename(None, type_info.quals, type_info.to_ast(False))
+                        dst_type_decl = c_ast.Typename(None, type_info.quals, type_info.to_decl())
                         return CastExpression(expression, type_info, c_ast.Cast(dst_type_decl, expression.ast_node))
         return None
 
-    def to_ast(self, verbose=True):
-        return_type_decl = self.return_type.to_ast(verbose)
+    def to_decl(self):
+        return_type_decl = self.return_type.to_decl()
         if not isinstance(return_type_decl, c_ast.TypeDecl):
             return_type_decl = c_ast.TypeDecl(None, list(), return_type_decl)
         node = c_ast.FuncDecl(c_ast.ParamList(list()), return_type_decl)
         for arg_type in self.args_types:
             if arg_type is not None:
-                arg_type_decl = arg_type.to_ast(verbose)
+                arg_type_decl = arg_type.to_decl()
                 arg_type_decl = c_ast.Typename(None, list(), arg_type_decl)
             else:
                 arg_type_decl = c_ast.EllipsisParam()
@@ -497,7 +546,7 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
             for capture_item in self.ast_node.capture_list:
                 symbol = self.ast_transformer.scope.find_symbol(capture_item)
                 if isinstance(symbol, VariableInfo):
-                    type_decl = symbol.type.to_ast(False)
+                    type_decl = symbol.type.to_decl()
                     tmp = type_decl
                     while not isinstance(tmp, c_ast.TypeDecl):
                         tmp = tmp.type
@@ -647,7 +696,7 @@ class PtrTypeInfo(TypeInfo):
                     return expression
                 if self.base_type.inherited_from(base_type):
                     from .expression import CastExpression
-                    dst_type_decl = base_type.to_ast(False)
+                    dst_type_decl = base_type.to_decl()
                     if not isinstance(dst_type_decl, c_ast.TypeDecl):
                         dst_type_decl = c_ast.TypeDecl(None, list(), dst_type_decl)
                     return CastExpression(expression, type_info,
@@ -657,8 +706,8 @@ class PtrTypeInfo(TypeInfo):
                 return expression
         return None
 
-    def to_ast(self, verbose=True):
-        base_type_decl = self.base_type.to_ast(verbose)
+    def to_decl(self):
+        base_type_decl = self.base_type.to_decl()
         return c_ast.PtrDecl(self.quals, base_type_decl)
 
 

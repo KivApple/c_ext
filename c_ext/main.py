@@ -18,6 +18,7 @@ def main():
                            help='Specify C preprocessor executable (use {input} and {output} for substitution).'
                            ' Example: "gcc -E -o {output} {input}"')
     argparser.add_argument('--debug', action='store_true', help='Disable optimizations')
+    argparser.add_argument('--no-sync-lines', action='store_true', help='Disable emiting #line directives')
     args = argparser.parse_args()
 
     input_filename = args.input
@@ -60,7 +61,7 @@ def main():
     ast_transformer.visit(parse_tree)
     fix_extension_qualifier(parse_tree)
     fix_coords(parse_tree)
-    generator = CodeGenerator()
+    generator = CodeGenerator(emit_line_numbers=not args.no_sync_lines)
     result = generator.visit(parse_tree)
 
     output_filename = args.output

@@ -3,10 +3,11 @@ from pycparserext.ext_c_generator import GnuCGenerator
 
 
 class CodeGenerator(GnuCGenerator):
-    def __init__(self):
+    def __init__(self, emit_line_numbers=True):
         super(CodeGenerator, self).__init__()
         self.cur_filename = None
         self.cur_line_number = 0
+        self.emit_line_numbers = emit_line_numbers
 
     def visit_FileAST(self, n):
         s = ''
@@ -138,6 +139,8 @@ class CodeGenerator(GnuCGenerator):
         return s
 
     def emit_line_number(self, n):
+        if not self.emit_line_numbers:
+            return ''
         if (n.coord.line != self.cur_line_number) or (n.coord.file != self.cur_filename):
             self.cur_filename = n.coord.file
             self.cur_line_number = n.coord.line
