@@ -157,6 +157,7 @@ method name in brackets in implementation:
 
 ## Future plans
 
+* Default values for function arguments
 * Asynchronous programming
 
 ## License
