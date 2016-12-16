@@ -146,13 +146,14 @@ even if it's constructor.
 * If you defined typedef with name same as struct name, you need to place
 method name in brackets in implementation:
 
-    typedef struct A {
-        void construct();
-    } A;
-
-    void (A::construct)() {
-        /* Do something */
-    }
+        typedef struct A {
+            void construct();
+        } A;
+        
+        void (A::construct)() {
+            /* Do something */
+        }
+* Names starting with __ (double underscore) reserved for internal usage.
 
 ## Future plans
 
