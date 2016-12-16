@@ -95,6 +95,45 @@ Also you can explicitly call parent method.
     E::i = 10;
     E::test();
 
+## Lambda-functions
+
+You can create anonymous functions:
+
+    int (*sum) = [] (int a, int b) -> int {
+        return a + b;
+    }
+
+In addition to normal functions pointers still exist delegates:
+
+    int (**sum) = [](int a, int b) -> int {
+        return a + b;
+    }
+
+You can call delegates as normal functions,
+but in fact this is not a simple pointer to a function as a set of functions and related data it.
+
+Anonymous function can capture variables from current context by value or by reference.
+In this case, they only can be used as delegates.
+
+    int a, b;
+    int (**inc_second_and_sum) = [a, &b]() -> int {
+        b++;
+        return a + b;
+    }
+
+Captured by reference variables must be available at the time of the call the anonymous function.
+
+Unlike the usual function pointer when creating delegates is an allocation of memory and it must be released
+when the delegate is no longer needed.
+
+    int a, b;
+    int (**inc_second_and_sum) = [a, &b]() -> int {
+        b++;
+        return a + b;
+    }
+    int c = inc_second_and_sum();
+    free(inc_second_and_sum);
+
 ## Limitations
 
 * If you have declared virtual methods in structure, you must declare constructor.
@@ -117,7 +156,6 @@ method name in brackets in implementation:
 
 ## Future plans
 
-* Lambdas
 * Asynchronous programming
 
 ## License
