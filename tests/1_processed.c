@@ -1010,7 +1010,7 @@ void (**make_print_func(const char *s))()
 }
 
 #line 55 "/home/kiv/projects/c_ext/tests/1.c"
-void run_foreach_element(int *array, size_t size, void (**func)(void *, int), _Bool destory_func)
+void run_foreach_element(int *array, size_t size, void (**func)(void *, int), _Bool destroy_func)
 {
 #line 56 "/home/kiv/projects/c_ext/tests/1.c"
   int i;
@@ -1023,7 +1023,7 @@ void run_foreach_element(int *array, size_t size, void (**func)(void *, int), _B
   }
 
 #line 60 "/home/kiv/projects/c_ext/tests/1.c"
-  if (destory_func)
+  if (destroy_func)
 #line 60 "/home/kiv/projects/c_ext/tests/1.c"
   {
     free(func);

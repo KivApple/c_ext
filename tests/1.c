@@ -52,12 +52,12 @@ void (**(make_print_func)(const char *s))() {
     };
 }
 
-void run_foreach_element(int *array, size_t size, void (**func)(void*, int), bool destory_func) {
+void run_foreach_element(int *array, size_t size, void (**func)(void*, int), bool destroy_func) {
     int i;
     for (i = 0; i < size; ++i) {
         func(array[i]);
     }
-    if (destory_func) {
+    if (destroy_func) {
         free(func);
     }
 }
