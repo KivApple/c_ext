@@ -189,6 +189,14 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         """
         p[0] = p[1]
 
+    def p_parameter_declaration_1(self, p):
+        """ parameter_declaration   : declaration_specifiers declarator
+                                    | declaration_specifiers declarator EQUALS constant_expression
+        """
+        super(ParserImproved, self).p_parameter_declaration_1(p)
+        if len(p) == 5:
+            p[0].init = p[4]
+
     def error(self, p, msg=None):
         if p:
             self._parse_error(

@@ -8,7 +8,7 @@ typedef struct A {
     void construct();
     virtual void destroy();
     virtual void print_text(const char *fmt, ...) = 0;
-    static void test();
+    static void test(bool b = true);
 } A;
 
 typedef struct B: A {
@@ -39,8 +39,12 @@ void (B::construct)() {
     printf("B::construct(i == %i)\n", i);
 }
 
-void (A::test)() {
-    printf("Test!\n");
+void (A::test)(bool b) {
+    if (b) {
+        printf("Test!\n");
+    } else {
+        printf("Test (b == false)!\n");
+    }
 }
 
 B b;
@@ -52,7 +56,7 @@ void (**(make_print_func)(const char *s))() {
     };
 }
 
-void run_foreach_element(int *array, size_t size, void (**func)(void*, int), bool destroy_func) {
+void run_foreach_element(int *array, size_t size, void (**func)(void*, int), bool destroy_func = true) {
     int i;
     for (i = 0; i < size; ++i) {
         func(array[i]);
@@ -75,7 +79,7 @@ int main() {
     int sum = 0;
     run_foreach_element(nums, 4, [&sum](int elem) {
         sum += elem;
-    }, true);
+    });
     printf("Sum = %i\n", sum);
     return 0;
 }

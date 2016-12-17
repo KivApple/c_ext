@@ -141,6 +141,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         return_type = self.visit(node.type)
         args_types = list()
         args = OrderedDict()
+        args_defaults = list()
         if node.args is not None:
             for arg_decl in node.args.params:
                 if isinstance(arg_decl, c_ast.Decl):
@@ -148,15 +149,24 @@ class ASTTransformer(c_ast.NodeVisitor):
                     args_types.append(arg_type_info)
                     if arg_decl.name is not None:
                         args[arg_decl.name] = arg_type_info
+                    if arg_decl.init is not None:
+                        value = self.visit(arg_decl.init)
+                        casted = TypeInfo.make_safe_cast(value, arg_type_info)
+                        value = casted if casted is not None else value
+                        args_defaults.append(value)
+                        arg_decl.init = None
+                    else:
+                        args_defaults.append(None)
                 elif isinstance(arg_decl, c_ast.Typename):
                     arg_type_info = self.visit(arg_decl.type)
                     args_types.append(arg_type_info)
                     if arg_decl.name is not None:
                         args[arg_decl.name] = arg_type_info
+                    args_defaults.append(None)
                 elif isinstance(arg_decl, c_ast.EllipsisParam):
                     args_types.append(None)
                     break
-        type_info = FuncTypeInfo(return_type, args_types, args)
+        type_info = FuncTypeInfo(return_type, args_types, args, args_defaults)
         return type_info
 
     def visit_FuncDeclExt(self, node):

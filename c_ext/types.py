@@ -475,11 +475,12 @@ class ArrayTypeInfo(TypeInfo):
 
 
 class FuncTypeInfo(TypeInfo):
-    def __init__(self, return_type, args_types, args=None):
+    def __init__(self, return_type, args_types, args=None, args_defaults=None):
         TypeInfo.__init__(self)
         self.return_type = return_type
         self.args_types = args_types
         self.args = args
+        self.args_defaults = args_defaults
 
     def __str__(self):
         return 'Func(%s) -> %s' % (', '.join(['%s' % type for type in self.args_types]), self.return_type)

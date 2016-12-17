@@ -172,7 +172,6 @@ class CallExpression(Expression):
         self.args = args
         ast_node.name = value.ast_node
         type_info = self.value.type_info
-        is_closure = False
         if isinstance(type_info, PtrTypeInfo):
             type_info = type_info.base_type
         if isinstance(type_info, PtrTypeInfo):
@@ -218,6 +217,16 @@ class CallExpression(Expression):
                 i += 1
             while i < len(args):
                 ast_node.args.exprs[i] = args[i].ast_node
+                i += 1
+            while i < len(type_info.args_types):
+                if type_info.args_defaults and i < len(type_info.args_defaults):
+                    default_value = type_info.args_defaults[i]
+                    if default_value is not None:
+                        if ast_node.args is None:
+                            ast_node.args = c_ast.ExprList(list())
+                        ast_node.args.exprs.append(default_value.ast_node)
+                    else:
+                        break
                 i += 1
             if isinstance(value, MemberExpression):
                 assert isinstance(value.struct_type_info, StructTypeInfo)

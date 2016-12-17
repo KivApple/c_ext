@@ -134,6 +134,14 @@ when the delegate is no longer needed.
     int c = inc_second_and_sum();
     free(inc_second_and_sum);
 
+## Default values for function arguments
+
+You can specify default values for some arguments of a function.
+
+    void f(int a, int b = 10);
+    
+    f(5); // b == 10
+
 ## Limitations
 
 * If you have declared virtual methods in structure, you must declare constructor.
@@ -157,7 +165,6 @@ method name in brackets in implementation:
 
 ## Future plans
 
-* Default values for function arguments
 * Asynchronous programming
 
 ## License
