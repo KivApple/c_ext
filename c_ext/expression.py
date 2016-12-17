@@ -23,23 +23,22 @@ class ConstantExpression(Expression):
 
 class VariableExpression(Expression):
     def __init__(self, name, scope, ast_node=None):
-        if isinstance(name, tuple):
-            self.name = '::'.join(name)
-        else:
-            self.name = name
+        self.name = name
         self.scope = scope
-        var_info = None
-        if isinstance(name, tuple):
-            assert len(name) == 2
-            type_info = scope.find_symbol('struct %s' % name[0])
-            if isinstance(type_info, StructTypeInfo):
-                var_info = type_info.scope.find_symbol(name[1], True)
-                if isinstance(var_info, VariableInfo):
-                    if 'static' in var_info.storage:
-                        ast_node.name = '%s_%s' % (name[0], name[1])
-        else:
-            var_info = scope.find_symbol(name)
+        var_info = scope.find_symbol(name)
         if isinstance(var_info, VariableInfo):
+            if isinstance(var_info.scope.owner, StructTypeInfo):
+                ast_node.name = '%s_%s' % (var_info.scope.owner.name, name)
+            elif isinstance(var_info.scope.owner, LambdaFuncTypeInfo):
+                if 'closure' in var_info.storage:
+                    ast_node = c_ast.StructRef(
+                        c_ast.ID('__closure_data'),
+                        '->',
+                        c_ast.ID(name),
+                        ast_node.coord
+                    )
+                    if 'link' in var_info.attrs:
+                        ast_node = c_ast.UnaryOp('*', ast_node, ast_node.coord)
             Expression.__init__(self, var_info.type, ast_node)
         else:
             Expression.__init__(self, None, ast_node)
@@ -146,17 +145,14 @@ class MemberExpression(Expression):
         assert isinstance(type_info, StructTypeInfo)
         self.struct_type_info = type_info
         assert type_info.scope is not None
-        type_info = type_info.scope.find_symbol(member_name)
+        type_info = type_info.scope.find_symbol(
+            member_name[-1] if isinstance(member_name, tuple) else member_name, True
+        )
         if isinstance(type_info, VariableInfo):
             type_info = type_info.type
-            if not isinstance(type_info, FuncTypeInfo):
-                ast_node = self.struct_type_info.fix_member_access(ast_node)
-        else:
             ast_node = self.struct_type_info.fix_member_access(ast_node)
-            if isinstance(ast_node, c_ast.ID):
-                type_info = self.struct_type_info.scope.find_symbol(ast_node.name).type
-            else:
-                type_info = None
+        else:
+            type_info = None
         Expression.__init__(self, type_info, ast_node)
 
     def __str__(self):
@@ -201,15 +197,28 @@ class CallExpression(Expression):
             ast_node.args.exprs.insert(0, tmp_ast_node)
             ast_node.name = c_ast.UnaryOp('*', ast_node.name, ast_node.name.coord)
         if isinstance(type_info, FuncTypeInfo):
-            args_types = [arg.type_info for arg in args]
             i = 0
+            if type_info.args and (type_info.args[0].name == 'this'):
+                if ast_node.args is None:
+                    ast_node.args = c_ast.ExprList(list())
+                if isinstance(value, MemberExpression):
+                    assert isinstance(value.struct_type_info, StructTypeInfo)
+                    if value.type == '.':
+                        args.insert(0, UnaryExpression('&', value.value, c_ast.UnaryOp('&', value.ast_node)))
+                    else:
+                        args.insert(0, value.value)
+                    ast_node.args.exprs.insert(0, args[0].ast_node)
+                else:
+                    ast_node.args.exprs.insert(0, c_ast.ID('this'))
+                    args.insert(0, VariableExpression('this', ast_transformer.scope, ast_node.args.exprs[0]))
+            args_types = [arg.type_info for arg in args]
             while i < len(args_types):
                 src_arg_type = args_types[i]
-                if i >= len(type_info.args_types):
+                if i >= len(type_info.args):
                     break
-                dst_arg_type = type_info.args_types[i]
-                if dst_arg_type is None:
+                if type_info.args[i] is None:
                     break
+                dst_arg_type = type_info.args[i].type_info
                 casted = TypeInfo.make_safe_cast(args[i], dst_arg_type)
                 if casted is None:
                     casted = args[i] # Warning
@@ -218,19 +227,17 @@ class CallExpression(Expression):
             while i < len(args):
                 ast_node.args.exprs[i] = args[i].ast_node
                 i += 1
-            while i < len(type_info.args_types):
-                if type_info.args_defaults and i < len(type_info.args_defaults):
-                    default_value = type_info.args_defaults[i]
-                    if default_value is not None:
-                        if ast_node.args is None:
-                            ast_node.args = c_ast.ExprList(list())
-                        ast_node.args.exprs.append(default_value.ast_node)
-                    else:
-                        break
+            while i < len(type_info.args):
+                if type_info.args[i] is None:
+                    break
+                default_value = type_info.args[i].default_value
+                if default_value is not None:
+                    if ast_node.args is None:
+                        ast_node.args = c_ast.ExprList(list())
+                    ast_node.args.exprs.append(default_value.ast_node)
+                else:
+                    break
                 i += 1
-            if isinstance(value, MemberExpression):
-                assert isinstance(value.struct_type_info, StructTypeInfo)
-                value.struct_type_info.fix_method_call(ast_node, value)
             Expression.__init__(self, type_info.return_type, ast_node)
         Expression.__init__(self, None, ast_node)
 

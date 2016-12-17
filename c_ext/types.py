@@ -1,7 +1,10 @@
 from collections import OrderedDict
 from six import iteritems
 import copy
+
 import pycparser.c_ast as c_ast
+
+from .scope import Scope
 
 
 class TypeInfo:
@@ -110,12 +113,6 @@ class StructTypeInfo(TypeInfo):
                 if tmp.declname is not None:
                     tmp.declname = name
                     break
-            elif isinstance(tmp, c_ast.FuncDecl):
-                if 'static' not in decl.storage:
-                    if tmp.args is None:
-                        tmp.args = c_ast.ParamList(list())
-                    if (len(tmp.args.params) == 0) or (tmp.args.params[0].name != 'this'):
-                        tmp.args.params.insert(0, self.make_this_ptr())
             tmp = tmp.type
         decl.storage.clear()
         decl.storage = ['extern']
@@ -125,16 +122,13 @@ class StructTypeInfo(TypeInfo):
         assert isinstance(decl, c_ast.Decl)
         assert isinstance(decl.type, c_ast.FuncDecl)
         assert 'virtual' in decl.storage
-        args = decl.type.args if copy.deepcopy(decl.type.args) else c_ast.ParamList(list())
-        if (len(args.params) == 0) or (args.params[0].name != 'this'):
-            args.params.insert(0, self.make_this_ptr())
         return c_ast.Decl(
             decl.name,
             list(), list(), list(),
             c_ast.PtrDecl(
                 list(),
                 c_ast.FuncDecl(
-                    args,
+                    decl.type.args,
                     decl.type.type
                 )
             ),
@@ -276,48 +270,6 @@ class StructTypeInfo(TypeInfo):
             return c_ast.TypeDecl(None, self.quals, node)
         return c_ast.TypeDecl(None, self.quals, c_ast.Struct(self.name, None))
 
-    def fix_method_call(self, node, expression):
-        from .expression import MemberExpression
-        assert isinstance(expression, MemberExpression)
-        symbol = self.scope.symbols.get(expression.member_name)
-        if symbol is not None:
-            assert isinstance(symbol, VariableInfo)
-            if not isinstance(symbol.type, FuncTypeInfo):
-                return
-            full_name = '%s_%s' % (self.name, expression.member_name)
-            if ('virtual' not in symbol.storage) or (expression.type == '.'):
-                node.name = c_ast.ID(full_name)
-            else:
-                node.name = c_ast.StructRef(
-                    c_ast.StructRef(expression.ast_node.name, '->', c_ast.ID(self.VTABLE_LINK_NAME)),
-                    '->', c_ast.ID(expression.member_name)
-                )
-            if 'static' not in symbol.storage:
-                if node.args is None:
-                    node.args = c_ast.ExprList(list())
-                this_type_info = PtrTypeInfo(self)
-                this_ptr = expression.value
-                if not isinstance(this_ptr.type_info, PtrTypeInfo):
-                    from .expression import UnaryExpression
-                    this_ptr = UnaryExpression('&', this_ptr, c_ast.UnaryOp('&', this_ptr.ast_node))
-                this_ptr = TypeInfo.make_safe_cast(this_ptr, this_type_info)
-                node.args.exprs.insert(0, this_ptr.ast_node)
-        elif self.parent is not None:
-            self.parent.fix_method_call(node, expression)
-        elif isinstance(node.name, c_ast.ID):
-            symbol = self.scope.find_symbol(node.name.name)
-            assert isinstance(symbol.type, FuncTypeInfo)
-            if node.args is None:
-                node.args = c_ast.ExprList(list())
-            this_type_info = symbol.type.args_types[0]\
-                if len(symbol.type.args_types) > 0 else expression.value.type_info
-            this_ptr = expression.value
-            if not isinstance(this_ptr.type_info, PtrTypeInfo):
-                from .expression import UnaryExpression
-                this_ptr = UnaryExpression('&', this_ptr, c_ast.UnaryOp('&', this_ptr.ast_node))
-            this_ptr = TypeInfo.make_safe_cast(this_ptr, this_type_info)
-            node.args.exprs.insert(0, this_ptr.ast_node)
-
     def fix_member_access(self, node):
         assert isinstance(node, c_ast.StructRef)
         if isinstance(node.field.name, tuple):
@@ -331,17 +283,31 @@ class StructTypeInfo(TypeInfo):
             member_name = node.field.name
         symbol = self.scope.symbols.get(member_name)
         if symbol is not None:
-            if 'static' in symbol.storage:
+            if ('static' in symbol.storage) or isinstance(symbol.type, FuncTypeInfo):
+                if 'virtual' in symbol.storage:
+                    if node.type == '->':
+                        return c_ast.StructRef(
+                            c_ast.StructRef(node.name, '->', c_ast.ID(self.VTABLE_LINK_NAME)),
+                            '->', c_ast.ID(symbol.name)
+                        )
                 full_name = '%s_%s' % (self.name, member_name)
                 return c_ast.ID(full_name)
         elif self.parent is not None:
             return self.parent.fix_member_access(node)
         return node
 
+    def fix_member_declaration(self, node):
+        assert isinstance(node, c_ast.Decl)
+        if isinstance(node.type, c_ast.FuncDecl):
+            if 'static' not in node.storage:
+                if node.type.args is None:
+                    node.type.args = c_ast.ParamList(list())
+                node.type.args.params.insert(0, self.make_this_ptr())
+
     def fix_member_implementation(self, node, name):
         assert isinstance(node, c_ast.Decl)
         if isinstance(node.type, c_ast.FuncDecl):
-            symbol = self.scope.find_symbol(name)
+            symbol = self.scope.find_symbol(name, True)
             assert isinstance(symbol, VariableInfo)
             if 'static' not in symbol.storage:
                 if node.type.args is None:
@@ -474,16 +440,23 @@ class ArrayTypeInfo(TypeInfo):
         return c_ast.PtrDecl(list(), self.base_type.to_decl())
 
 
+class FuncArgInfo:
+    def __init__(self, name, type_info, default_value):
+        self.name = name
+        self.type_info = type_info
+        self.default_value = default_value
+
+
 class FuncTypeInfo(TypeInfo):
-    def __init__(self, return_type, args_types, args=None, args_defaults=None):
+    def __init__(self, return_type, args):
         TypeInfo.__init__(self)
         self.return_type = return_type
-        self.args_types = args_types
         self.args = args
-        self.args_defaults = args_defaults
 
     def __str__(self):
-        return 'Func(%s) -> %s' % (', '.join(['%s' % type for type in self.args_types]), self.return_type)
+        return 'Func(%s) -> %s' % (', '.join(
+            ['%s' % (arg.type_info if arg is not None else '...') for arg in self.args]
+        ), self.return_type)
 
     def safe_cast(self, expression, type_info):
         if isinstance(type_info, PtrTypeInfo):
@@ -494,13 +467,13 @@ class FuncTypeInfo(TypeInfo):
                 if TypeInfo.is_compatible(self.return_type, func_info.return_type):
                     compatible = True
                     i = 0
-                    while i < len(func_info.args_types):
-                        if i >= len(self.args_types):
+                    while i < len(func_info.args):
+                        if i >= len(self.args):
                             compatible = False
                             break
-                        if self.args_types[i] is None:
+                        if self.args[i] is None:
                             break
-                        if not TypeInfo.is_compatible(func_info.args_types[i], self.args_types[i]):
+                        if not TypeInfo.is_compatible(func_info.args[i].type_info, self.args[i].type_info):
                             compatible = False
                             break
                         i += 1
@@ -515,14 +488,21 @@ class FuncTypeInfo(TypeInfo):
         if not isinstance(return_type_decl, c_ast.TypeDecl):
             return_type_decl = c_ast.TypeDecl(None, list(), return_type_decl)
         node = c_ast.FuncDecl(c_ast.ParamList(list()), return_type_decl)
-        for arg_type in self.args_types:
-            if arg_type is not None:
-                arg_type_decl = arg_type.to_decl()
+        for arg in self.args:
+            if arg is not None:
+                arg_type_decl = arg.type_info.to_decl()
                 arg_type_decl = c_ast.Typename(None, list(), arg_type_decl)
             else:
                 arg_type_decl = c_ast.EllipsisParam()
             node.args.params.append(arg_type_decl)
         return node
+
+
+class LambdaFuncCaptureItem:
+    def __init__(self, name, type_info, link):
+        self.name = name
+        self.type_info = type_info
+        self.link = link
 
 
 class LambdaFuncTypeInfo(FuncTypeInfo):
@@ -538,6 +518,15 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
         self.name = name
         self.ast_node = ast_node
         self.ast_transformer = ast_transformer
+        self.capture_list = list()
+        for item in ast_node.capture_list:
+            link = item[0] == '&'
+            name = item if not link else item[1:]
+            symbol = ast_transformer.scope.find_symbol(name)
+            if not isinstance(symbol, VariableInfo):
+                from .error import CodeSyntaxError
+                raise CodeSyntaxError('Variable %s not found' % name, ast_node)
+            self.capture_list.append(LambdaFuncCaptureItem(name, symbol.type, link))
 
     def safe_cast(self, expression, type_info):
         from .error import CodeSyntaxError
@@ -545,7 +534,7 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
         if isinstance(type_info, PtrTypeInfo):
             if isinstance(type_info.base_type, PtrTypeInfo):
                 use_closure = True
-        if not use_closure and self.ast_node.capture_list:
+        if not use_closure and self.capture_list:
             raise CodeSyntaxError('Cannot convert closure to function pointer', self.ast_node.coord)
         params = self.ast_node.args.params if self.ast_node.args else list()
         body = self.ast_node.body.block_items
@@ -581,27 +570,20 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
                     None, None
                 )
             ]
-            for capture_item in self.ast_node.capture_list:
-                link = capture_item[0] == '&'
-                if link:
-                    capture_item = capture_item[1:]
-                symbol = self.ast_transformer.scope.find_symbol(capture_item)
-                if isinstance(symbol, VariableInfo):
-                    type_decl = symbol.type.to_decl()
-                    tmp = type_decl
-                    while not isinstance(tmp, c_ast.TypeDecl):
-                        tmp = tmp.type
-                    tmp.declname = capture_item
-                    closure_struct_members.append(
-                        c_ast.Decl(
-                            capture_item,
-                            list(), list(), list(),
-                            c_ast.PtrDecl(list(), type_decl) if link else type_decl,
-                            None, None
-                        )
+            for capture_item in self.capture_list:
+                type_decl = capture_item.type_info.to_decl()
+                tmp = type_decl
+                while not isinstance(tmp, c_ast.TypeDecl):
+                    tmp = tmp.type
+                tmp.declname = capture_item.name
+                closure_struct_members.append(
+                    c_ast.Decl(
+                        capture_item.name,
+                        list(), list(), list(),
+                        c_ast.PtrDecl(list(), type_decl) if capture_item.link else type_decl,
+                        None, None
                     )
-                else:
-                    raise CodeSyntaxError('Variable %s not found' % capture_item, self.ast_node.coord)
+                )
             self.ast_transformer.schedule_decl(
                 c_ast.Struct(
                     closure_data_type_name,
@@ -653,17 +635,14 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
                     self.ast_node.coord
                 )
             )
-            for capture_item in self.ast_node.capture_list:
-                link = capture_item[0] == '&'
-                if link:
-                    capture_item = capture_item[1:]
-                value = c_ast.ID(capture_item)
-                if link:
+            for capture_item in self.capture_list:
+                value = c_ast.ID(capture_item.name)
+                if capture_item.link:
                     value = c_ast.UnaryOp('&', value)
                 self.ast_transformer.schedule_tmp_decl(
                     c_ast.Assignment(
                         '=',
-                        c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID(capture_item)),
+                        c_ast.StructRef(c_ast.ID(closure_data_name), '->', c_ast.ID(capture_item.name)),
                         value,
                         self.ast_node.coord
                     )
@@ -759,13 +738,14 @@ class PtrTypeInfo(TypeInfo):
 
 
 class VariableInfo:
-    def __init__(self, name, type, storage, coord=None):
+    def __init__(self, name, type, storage, scope, coord=None):
         self.name = name
         self.type = type
         self.storage = storage
         self.init = None
         self.attrs = set()
         self.coord = coord
+        self.scope = scope
 
     def __str__(self):
         return 'Variable(%s, %s)' % (self.name, self.type)

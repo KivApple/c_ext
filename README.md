@@ -99,13 +99,13 @@ Also you can explicitly call parent method.
 
 You can create anonymous functions:
 
-    int (*sum) = [] (int a, int b) -> int {
+    int (*sum)(int, int) = [] (int a, int b) -> int {
         return a + b;
     }
 
 In addition to normal functions pointers still exist delegates:
 
-    int (**sum) = [](int a, int b) -> int {
+    int (**sum)(void*, int, int) = [](int a, int b) -> int {
         return a + b;
     }
 
@@ -116,7 +116,7 @@ Anonymous function can capture variables from current context by value or by ref
 In this case, they only can be used as delegates.
 
     int a, b;
-    int (**inc_second_and_sum) = [a, &b]() -> int {
+    int (**inc_second_and_sum)(void*, int, int) = [a, &b]() -> int {
         b++;
         return a + b;
     }
@@ -127,7 +127,7 @@ Unlike the usual function pointer when creating delegates is an allocation of me
 when the delegate is no longer needed.
 
     int a, b;
-    int (**inc_second_and_sum) = [a, &b]() -> int {
+    int (**inc_second_and_sum)(void*, int, int) = [a, &b]() -> int {
         b++;
         return a + b;
     }

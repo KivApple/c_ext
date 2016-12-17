@@ -21,7 +21,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.structs_with_declared_methods = set()
         self.node_path = list()
         self.cur_lambda_id = 0
-        self.lambdas_capture_lists = dict()
+        self.lambdas = dict()
 
     def visit(self, node):
         self.node_path.append(node)
@@ -96,6 +96,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             type_info = StructTypeInfo(kind, node.name, self)
             type_info.scope = Scope()
             type_info.scope.attrs.add('struct')
+            type_info.scope.owner = type_info
             if node.name is not None:
                 self.root_scope.add_symbol('%s %s' % (kind, node.name), type_info)
         if node.decls is not None:
@@ -139,34 +140,21 @@ class ASTTransformer(c_ast.NodeVisitor):
     def visit_FuncDecl(self, node):
         assert isinstance(node, (c_ast.FuncDecl, FuncDeclExt))
         return_type = self.visit(node.type)
-        args_types = list()
-        args = OrderedDict()
-        args_defaults = list()
+        args = list()
         if node.args is not None:
             for arg_decl in node.args.params:
                 if isinstance(arg_decl, c_ast.Decl):
                     arg_type_info = self.visit(arg_decl.type)
-                    args_types.append(arg_type_info)
-                    if arg_decl.name is not None:
-                        args[arg_decl.name] = arg_type_info
-                    if arg_decl.init is not None:
-                        value = self.visit(arg_decl.init)
-                        casted = TypeInfo.make_safe_cast(value, arg_type_info)
-                        value = casted if casted is not None else value
-                        args_defaults.append(value)
-                        arg_decl.init = None
-                    else:
-                        args_defaults.append(None)
+                    init = self.visit(arg_decl.init) if arg_decl.init is not None else None
+                    args.append(FuncArgInfo(arg_decl.name, arg_type_info, init))
+                    arg_decl.init = None
                 elif isinstance(arg_decl, c_ast.Typename):
                     arg_type_info = self.visit(arg_decl.type)
-                    args_types.append(arg_type_info)
-                    if arg_decl.name is not None:
-                        args[arg_decl.name] = arg_type_info
-                    args_defaults.append(None)
+                    args.append(FuncArgInfo(arg_decl.name, arg_type_info, None))
                 elif isinstance(arg_decl, c_ast.EllipsisParam):
-                    args_types.append(None)
+                    args.append(None)
                     break
-        type_info = FuncTypeInfo(return_type, args_types, args, args_defaults)
+        type_info = FuncTypeInfo(return_type, args)
         return type_info
 
     def visit_FuncDeclExt(self, node):
@@ -185,6 +173,8 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_Decl(self, node):
         assert isinstance(node, c_ast.Decl)
+        if isinstance(self.scope.owner, StructTypeInfo):
+            self.scope.owner.fix_member_declaration(node)
         if isinstance(node.name, tuple):
             assert len(node.name) == 2
             struct_type_info = self.scope.find_symbol("struct %s" % node.name[0])
@@ -211,14 +201,17 @@ class ASTTransformer(c_ast.NodeVisitor):
                         if 'extern' in symbol.storage:
                             fail = False
                         elif isinstance(type_info, FuncTypeInfo):
-                            tmp = symbol.type
-                            if not isinstance(tmp, PtrTypeInfo):
-                                tmp = PtrTypeInfo(tmp)
-                            if TypeInfo.is_compatible(type_info, tmp):
+                            if 'struct' in self.scope.attrs:
                                 fail = False
+                            else:
+                                tmp = symbol.type
+                                if not isinstance(tmp, PtrTypeInfo):
+                                    tmp = PtrTypeInfo(tmp)
+                                if TypeInfo.is_compatible(type_info, tmp):
+                                    fail = False
                 if fail:
                     raise CodeSyntaxError('Symbol %s already defined in current scope' % node.name, node.coord)
-            var_info = VariableInfo(node.name, type_info, node.storage, coord=node.coord)
+            var_info = VariableInfo(node.name, type_info, node.storage, self.scope, coord=node.coord)
             if 'struct' in self.scope.attrs:
                 var_info.attrs.add('member')
             self.scope.add_symbol(node.name, var_info)
@@ -245,59 +238,17 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_ID(self, node):
         assert isinstance(node, c_ast.ID)
-        free = True
-        if (len(self.node_path) > 0) and isinstance(self.node_path[-1], c_ast.StructRef):
-            if self.node_path[-1].name != node:
-                free = False
-        if free and ('member' in self.scope.attrs):
-            symbol_name = node.name
-            symbol_scope = self.scope
-            struct_type_info = None
-            if isinstance(node.name, tuple):
-                assert len(node.name) == 2
-                struct_type_info = self.scope.find_symbol('struct %s' % node.name[0])
-                if not isinstance(struct_type_info, StructTypeInfo):
-                    raise CodeSyntaxError('%s is not a structure name' % node.name[0], node)
-                symbol_scope = struct_type_info.scope
-                symbol_name = node.name[1]
-            symbol = symbol_scope.find_symbol(symbol_name, True)
-            if isinstance(symbol, VariableInfo):
-                if 'member' in symbol.attrs:
-                    this_ptr = VariableExpression('this', self.scope, c_ast.ID('this', node.coord))
-                    return MemberExpression(
-                        this_ptr,
-                        node.name,
-                        '->',
-                        c_ast.StructRef(this_ptr.ast_node, '->', c_ast.ID(node.name, node.coord), node.coord)
-                    )
-        if free:
-            i = len(self.node_path) - 1
-            while i >= 0:
-                n = self.node_path[i]
-                if isinstance(n, c_ast.FuncDef):
-                    capture_list = self.lambdas_capture_lists.get(n.decl.name, list())
-                    for capture_item in capture_list:
-                        link = capture_item[0] == '&'
-                        if link:
-                            capture_item = capture_item[1:]
-                        if capture_item == node.name:
-                            closure_ptr = VariableExpression(
-                                LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
-                                self.scope,
-                                c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME)
-                            )
-                            val = MemberExpression(
-                                closure_ptr,
-                                node.name,
-                                '->',
-                                c_ast.StructRef(closure_ptr.ast_node, '->', c_ast.ID(node.name))
-                            )
-                            if link:
-                                val = UnaryExpression('*', val, c_ast.UnaryOp('*', val.ast_node))
-                            return val
-                    break
-                i -= 1
-        return VariableExpression(node.name, self.scope, node)
+        symbol_scope = self.scope
+        symbol_name = node.name
+        if isinstance(node.name, tuple):
+            if len(node.name) != 2:
+                raise CodeSyntaxError('Only struct_id::member_name format is supported')
+            struct_type_info = self.scope.find_symbol('struct %s' % node.name[0])
+            if not isinstance(struct_type_info, StructTypeInfo):
+                raise CodeSyntaxError('%s is not a structure name' % node.name[0], node)
+            symbol_scope = struct_type_info.scope
+            symbol_name = node.name[1]
+        return VariableExpression(symbol_name, symbol_scope, node)
 
     def visit_UnaryOp(self, node):
         assert isinstance(node, c_ast.UnaryOp)
@@ -408,9 +359,11 @@ class ASTTransformer(c_ast.NodeVisitor):
         var_info = self.visit(node.decl)
         prev_scope = self.scope
         self.scope = Scope(self.scope)
+        self.scope.owner = self.lambdas.get(node.decl.name, var_info.type)
         assert isinstance(var_info.type, FuncTypeInfo)
-        for name, type_info in iteritems(var_info.type.args):
-            self.scope.add_symbol(name, VariableInfo(name, type_info, list()))
+        for arg in var_info.type.args:
+            if arg is not None:
+                self.scope.add_symbol(arg.name, VariableInfo(arg.name, arg.type_info, list(), self.scope))
         if isinstance(name_, tuple):
             assert len(name_) == 2
             type_info = self.scope.find_symbol('struct %s' % name_[0])
@@ -420,13 +373,18 @@ class ASTTransformer(c_ast.NodeVisitor):
                 type_info.fix_func_implementation(node, name_[1], self)
             else:
                 raise CodeSyntaxError('%s is not a structure name' % name_[0], node.coord)
+        if isinstance(self.scope.owner, LambdaFuncTypeInfo):
+            for capture_item in self.scope.owner.capture_list:
+                symbol = VariableInfo(capture_item.name, capture_item.type_info, ['closure'], self.scope)
+                if capture_item.link:
+                    symbol.attrs.add('link')
+                self.scope.add_symbol(symbol.name, symbol)
         self.visit(node.body)
         self.scope = prev_scope
 
     def visit_LambdaFunc(self, node):
         assert isinstance(node, LambdaFunc)
         func_name = LambdaFuncTypeInfo.LAMBDA_FUNC_NAME_FMT % self.cur_lambda_id
-        self.lambdas_capture_lists[func_name] = node.capture_list
         self.cur_lambda_id += 1
         prev_scope = self.scope
         self.scope = Scope(self.scope)
@@ -442,6 +400,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     args_types.append(None)
         self.scope = prev_scope
         type_info = LambdaFuncTypeInfo(func_name, return_type_info, args_types, node, self)
+        self.lambdas[func_name] = type_info
         return LambdaFuncExpression(type_info, node)
 
     def schedule_decl(self, decl, prepend=False):
