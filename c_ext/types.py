@@ -513,8 +513,8 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
     CLOSURE_FUNC_LINK_NAME = '__fn'
     CLOSURE_DATA_NAME_FMT = '%s_data'
 
-    def __init__(self, name, return_type, args_types, ast_node, ast_transformer):
-        FuncTypeInfo.__init__(self, return_type, args_types)
+    def __init__(self, name, return_type, args, ast_node, ast_transformer):
+        FuncTypeInfo.__init__(self, return_type, args)
         self.name = name
         self.ast_node = ast_node
         self.ast_transformer = ast_transformer

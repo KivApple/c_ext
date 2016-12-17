@@ -389,17 +389,19 @@ class ASTTransformer(c_ast.NodeVisitor):
         prev_scope = self.scope
         self.scope = Scope(self.scope)
         return_type_info = self.visit(node.return_type)
-        args_types = list()
+        args = list()
         if node.args:
             for arg in node.args.params:
                 if isinstance(arg, c_ast.Decl):
-                    args_types.append(self.visit(arg.type))
+                    type_info = self.visit(arg.type)
+                    args.append(FuncArgInfo(arg.name, type_info, None))
                 elif isinstance(arg, c_ast.Typename):
-                    args_types.append(self.visit(arg.type))
+                    type_info = self.visit(arg.type)
+                    args.append(FuncArgInfo(arg.name, type_info, None))
                 elif isinstance(arg, c_ast.EllipsisParam):
-                    args_types.append(None)
+                    args.append(None)
         self.scope = prev_scope
-        type_info = LambdaFuncTypeInfo(func_name, return_type_info, args_types, node, self)
+        type_info = LambdaFuncTypeInfo(func_name, return_type_info, args, node, self)
         self.lambdas[func_name] = type_info
         return LambdaFuncExpression(type_info, node)
 

@@ -239,7 +239,8 @@ class CallExpression(Expression):
                     break
                 i += 1
             Expression.__init__(self, type_info.return_type, ast_node)
-        Expression.__init__(self, None, ast_node)
+        else:
+            Expression.__init__(self, None, ast_node)
 
     def __str__(self):
         return '%s(%s)' % (self.value, ', '.join([str(arg) for arg in self.args]))
