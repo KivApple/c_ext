@@ -17,7 +17,9 @@ def main():
     argparser.add_argument('--preprocessor',
                            help='Specify C preprocessor executable (use {input} and {output} for substitution).'
                            ' Example: "gcc -E -o {output} {input}"')
-    argparser.add_argument('--debug', action='store_true', help='Disable optimizations')
+    argparser.add_argument('--debug', action='store_true', help='Disable parser optimization')
+    argparser.add_argument('--debug-dump', action='store_true', help='Dump parser information')
+    argparser.add_argument('--verbose-debug', action='store_true', help='Display verbose debug messages while parsing')
     argparser.add_argument('--no-sync-lines', action='store_true', help='Disable emiting #line directives')
     args = argparser.parse_args()
 
@@ -53,9 +55,11 @@ def main():
         parser_options['lex_optimize'] = True
         parser_options['yacc_optimize'] = True
         sys.path.insert(0, cache_dir)
+    if args.debug_dump:
+        parser_options['yacc_debug'] = True
 
     parser = ParserImproved(**parser_options)
-    parse_tree = parser.parse(text=input_text, filename=input_filename)
+    parse_tree = parser.parse(text=input_text, filename=input_filename, debuglevel=1 if args.verbose_debug else 0)
     fix_coords(parse_tree)
     ast_transformer = ASTTransformer()
     ast_transformer.visit(parse_tree)

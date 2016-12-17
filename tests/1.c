@@ -7,39 +7,43 @@ typedef struct A {
     static int i;
     void construct();
     virtual void destroy();
-    virtual void print_text(const char *fmt, ...) = 0;
+    virtual void print_text(const char *fmt = NULL, ...) = 0;
     static void test(bool b = true);
 } A;
 
 typedef struct B: A {
     void construct();
-    virtual void print_text(const char *fmt, ...);
+    virtual void print_text(const char *fmt = NULL, ...);
 } B;
 
-int (A::i) = 0;
+int A::i = 0;
 
-void (A::construct)() {
+void A::construct() {
     i++;
     printf("A::construct(i == %i)\n", i);
 }
 
-void (A::destroy)() {
+void A::destroy() {
     printf("Object destroyed\n");
 }
 
-void (B::print_text)(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vprintf(fmt, args);
-    va_end(args);
+void B::print_text(const char *fmt, ...) {
+    if (fmt) {
+        va_list args;
+        va_start(args, fmt);
+        vprintf(fmt, args);
+        va_end(args);
+    } else {
+        printf("(null)\n");
+    }
 }
 
-void (B::construct)() {
+void B::construct() {
     A::construct();
     printf("B::construct(i == %i)\n", i);
 }
 
-void (A::test)(bool b) {
+void A::test(bool b) {
     if (b) {
         printf("Test!\n");
     } else {
@@ -69,6 +73,7 @@ void run_foreach_element(int *array, size_t size, void (**func)(void*, int), boo
 int main() {
     b.construct();
     b_ptr->print_text("%s\n", "Hello world!");
+    b_ptr->print_text();
     b_ptr->destroy();
     A::test();
     void (**print_func)() = make_print_func("Test");

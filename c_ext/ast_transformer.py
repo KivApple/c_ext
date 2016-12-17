@@ -420,7 +420,6 @@ class ASTTransformer(c_ast.NodeVisitor):
                 type_info.fix_func_implementation(node, name_[1], self)
             else:
                 raise CodeSyntaxError('%s is not a structure name' % name_[0], node.coord)
-        self.split_async_func(node)
         self.visit(node.body)
         self.scope = prev_scope
 
@@ -454,6 +453,3 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def schedule_tmp_decl(self, decl):
         self.scheduled_tmp_decls.append(decl)
-
-    def split_async_func(self, node):
-        pass

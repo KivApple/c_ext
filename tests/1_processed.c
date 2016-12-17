@@ -82,27 +82,28 @@ struct _IO_FILE;
 typedef struct _IO_FILE FILE;
 #line 64 "/usr/include/stdio.h"
 typedef struct _IO_FILE __FILE;
-#line 83 "/usr/include/wchar.h"
+#line 94 "/usr/include/wchar.h"
 typedef struct 
 {
 #line 84 "/usr/include/wchar.h"
   int __count;
-#line 86 "/usr/include/wchar.h"
+#line 93 "/usr/include/wchar.h"
   union 
   {
+#line 88 "/usr/include/wchar.h"
     unsigned int __wch;
 #line 92 "/usr/include/wchar.h"
     char __wchb[4];
   } __value;
 } __mbstate_t;
-#line 22 "/usr/include/_G_config.h"
+#line 25 "/usr/include/_G_config.h"
 typedef struct 
 {
 #line 23 "/usr/include/_G_config.h"
   __off_t __pos;
   __mbstate_t __state;
 } _G_fpos_t;
-#line 27 "/usr/include/_G_config.h"
+#line 30 "/usr/include/_G_config.h"
 typedef struct 
 {
 #line 28 "/usr/include/_G_config.h"
@@ -405,21 +406,21 @@ extern int ftrylockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 extern void funlockfile(FILE *__stream) __attribute__((__nothrow__, __leaf__));
 #line 328 "/usr/lib/gcc/x86_64-pc-linux-gnu/6.2.1/include/stddef.h"
 typedef int wchar_t;
-#line 59 "/usr/include/stdlib.h"
+#line 62 "/usr/include/stdlib.h"
 typedef struct 
 {
 #line 60 "/usr/include/stdlib.h"
   int quot;
   int rem;
 } div_t;
-#line 67 "/usr/include/stdlib.h"
+#line 70 "/usr/include/stdlib.h"
 typedef struct 
 {
 #line 68 "/usr/include/stdlib.h"
   long int quot;
   long int rem;
 } ldiv_t;
-#line 79 "/usr/include/stdlib.h"
+#line 82 "/usr/include/stdlib.h"
 __extension__ typedef struct 
 {
 #line 80 "/usr/include/stdlib.h"
@@ -527,7 +528,7 @@ __inline static __uint64_t __bswap_64(__uint64_t __bsx)
 
 #line 22 "/usr/include/bits/sigset.h"
 typedef int __sig_atomic_t;
-#line 28 "/usr/include/bits/sigset.h"
+#line 30 "/usr/include/bits/sigset.h"
 typedef struct 
 {
 #line 29 "/usr/include/bits/sigset.h"
@@ -551,7 +552,7 @@ struct timeval
 typedef __suseconds_t suseconds_t;
 #line 56 "/usr/include/sys/select.h"
 typedef long int __fd_mask;
-#line 67 "/usr/include/sys/select.h"
+#line 77 "/usr/include/sys/select.h"
 typedef struct 
 {
 #line 74 "/usr/include/sys/select.h"
@@ -587,18 +588,20 @@ union pthread_attr_t
 };
 #line 69 "/usr/include/bits/pthreadtypes.h"
 typedef union pthread_attr_t pthread_attr_t;
-#line 75 "/usr/include/bits/pthreadtypes.h"
+#line 79 "/usr/include/bits/pthreadtypes.h"
 typedef struct __pthread_internal_list
 {
+#line 77 "/usr/include/bits/pthreadtypes.h"
   struct __pthread_internal_list *__prev;
   struct __pthread_internal_list *__next;
 } __pthread_list_t;
-#line 91 "/usr/include/bits/pthreadtypes.h"
+#line 128 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
-#line 92 "/usr/include/bits/pthreadtypes.h"
+#line 125 "/usr/include/bits/pthreadtypes.h"
   struct __pthread_mutex_s
   {
+#line 94 "/usr/include/bits/pthreadtypes.h"
     int __lock;
     unsigned int __count;
     int __owner;
@@ -615,16 +618,17 @@ typedef union
   char __size[40];
   long int __align;
 } pthread_mutex_t;
-#line 131 "/usr/include/bits/pthreadtypes.h"
+#line 134 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
 #line 132 "/usr/include/bits/pthreadtypes.h"
   char __size[4];
   int __align;
 } pthread_mutexattr_t;
-#line 140 "/usr/include/bits/pthreadtypes.h"
+#line 154 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
+#line 151 "/usr/include/bits/pthreadtypes.h"
   struct 
   {
 #line 143 "/usr/include/bits/pthreadtypes.h"
@@ -640,7 +644,7 @@ typedef union
   char __size[48];
   __extension__ long long int __align;
 } pthread_cond_t;
-#line 157 "/usr/include/bits/pthreadtypes.h"
+#line 160 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
 #line 158 "/usr/include/bits/pthreadtypes.h"
@@ -651,10 +655,10 @@ typedef union
 typedef unsigned int pthread_key_t;
 #line 168 "/usr/include/bits/pthreadtypes.h"
 typedef int pthread_once_t;
-#line 175 "/usr/include/bits/pthreadtypes.h"
+#line 222 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
-#line 178 "/usr/include/bits/pthreadtypes.h"
+#line 200 "/usr/include/bits/pthreadtypes.h"
   struct 
   {
 #line 179 "/usr/include/bits/pthreadtypes.h"
@@ -678,7 +682,7 @@ typedef union
   char __size[56];
   long int __align;
 } pthread_rwlock_t;
-#line 225 "/usr/include/bits/pthreadtypes.h"
+#line 228 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
 #line 226 "/usr/include/bits/pthreadtypes.h"
@@ -687,14 +691,14 @@ typedef union
 } pthread_rwlockattr_t;
 #line 234 "/usr/include/bits/pthreadtypes.h"
 typedef volatile int pthread_spinlock_t;
-#line 240 "/usr/include/bits/pthreadtypes.h"
+#line 243 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
 #line 241 "/usr/include/bits/pthreadtypes.h"
   char __size[32];
   long int __align;
 } pthread_barrier_t;
-#line 246 "/usr/include/bits/pthreadtypes.h"
+#line 249 "/usr/include/bits/pthreadtypes.h"
 typedef union 
 {
 #line 247 "/usr/include/bits/pthreadtypes.h"
@@ -882,7 +886,7 @@ extern int rpmatch(const char *__response) __attribute__((__nothrow__, __leaf__,
 extern int getsubopt(char **__restrict __optionp, char *const *__restrict __tokens, char **__restrict __valuep) __attribute__((__nothrow__, __leaf__, __nonnull__(1, 2, 3)));
 #line 911 "/usr/include/stdlib.h"
 extern int getloadavg(double __loadavg[], int __nelem) __attribute__((__nothrow__, __leaf__, __nonnull__(1)));
-#line 6 "/home/kiv/projects/c_ext/tests/1.c"
+#line 12 "/home/kiv/projects/c_ext/tests/1.c"
 typedef struct A
 {
 #line 6 "/home/kiv/projects/c_ext/tests/1.c"
@@ -904,7 +908,7 @@ extern void A_construct(struct A *const this);
 extern void A_destroy(struct A *const this);
 #line 11 "/home/kiv/projects/c_ext/tests/1.c"
 extern void A_test(_Bool b);
-#line 14 "/home/kiv/projects/c_ext/tests/1.c"
+#line 17 "/home/kiv/projects/c_ext/tests/1.c"
 typedef struct B
 {
 #line 14 "/home/kiv/projects/c_ext/tests/1.c"
@@ -947,150 +951,162 @@ void A_destroy(struct A *const this)
 void B_print_text(struct B *const this, const char *fmt, ...)
 {
 #line 31 "/home/kiv/projects/c_ext/tests/1.c"
-  va_list args;
-  __builtin_va_start(args, fmt);
-  vprintf(fmt, args);
-  __builtin_va_end(args);
+  if (fmt)
+#line 31 "/home/kiv/projects/c_ext/tests/1.c"
+  {
+    va_list args;
+    __builtin_va_start(args, fmt);
+    vprintf(fmt, args);
+    __builtin_va_end(args);
+  }
+  else
+#line 36 "/home/kiv/projects/c_ext/tests/1.c"
+  {
+    printf("(null)\n");
+  }
+
 }
 
+#line 41 "/home/kiv/projects/c_ext/tests/1.c"
 void B_construct(struct B *const this)
 {
-#line 38 "/home/kiv/projects/c_ext/tests/1.c"
+#line 42 "/home/kiv/projects/c_ext/tests/1.c"
   A_construct((struct A *const ) this);
-#line 37 "/home/kiv/projects/c_ext/tests/1.c"
+#line 41 "/home/kiv/projects/c_ext/tests/1.c"
   this->__vtable = & B_vtable;
-#line 39 "/home/kiv/projects/c_ext/tests/1.c"
+#line 43 "/home/kiv/projects/c_ext/tests/1.c"
   printf("B::construct(i == %i)\n", A_i);
 }
 
-#line 37 "/home/kiv/projects/c_ext/tests/1.c"
+#line 41 "/home/kiv/projects/c_ext/tests/1.c"
 const struct B_VTable B_vtable = {& A_vtable, "B", A_destroy, B_print_text};
-#line 42 "/home/kiv/projects/c_ext/tests/1.c"
+#line 46 "/home/kiv/projects/c_ext/tests/1.c"
 void A_test(_Bool b)
 {
-#line 43 "/home/kiv/projects/c_ext/tests/1.c"
+#line 47 "/home/kiv/projects/c_ext/tests/1.c"
   if (b)
-#line 43 "/home/kiv/projects/c_ext/tests/1.c"
+#line 47 "/home/kiv/projects/c_ext/tests/1.c"
   {
     printf("Test!\n");
   }
   else
-#line 45 "/home/kiv/projects/c_ext/tests/1.c"
+#line 49 "/home/kiv/projects/c_ext/tests/1.c"
   {
     printf("Test (b == false)!\n");
   }
 
 }
 
-#line 50 "/home/kiv/projects/c_ext/tests/1.c"
+#line 54 "/home/kiv/projects/c_ext/tests/1.c"
 B b;
 A *b_ptr = (struct A *) (& b);
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
 struct __lambda_0_ClosureData
 {
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
   void (*__fn)(void *const __closure);
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
   const char *s;
 };
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
 static void __lambda_0(void *const __closure)
 {
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_0_ClosureData
   {
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
     void (*__fn)(void *const __closure);
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
     const char *s;
   } *const __closure_data = __closure;
-#line 55 "/home/kiv/projects/c_ext/tests/1.c"
+#line 59 "/home/kiv/projects/c_ext/tests/1.c"
   printf("%s\n", __closure_data->s);
 }
 
-#line 53 "/home/kiv/projects/c_ext/tests/1.c"
+#line 57 "/home/kiv/projects/c_ext/tests/1.c"
 void (**make_print_func(const char *s))()
 {
-#line 53 "/home/kiv/projects/c_ext/tests/1.c"
+#line 57 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_0_ClosureData *const __lambda_0_data = malloc(sizeof(struct __lambda_0_ClosureData));
   __lambda_0_data->__fn = __lambda_0;
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_0_data->s = s;
-#line 54 "/home/kiv/projects/c_ext/tests/1.c"
+#line 58 "/home/kiv/projects/c_ext/tests/1.c"
   return (void *) __lambda_0_data;
 }
 
-#line 59 "/home/kiv/projects/c_ext/tests/1.c"
+#line 63 "/home/kiv/projects/c_ext/tests/1.c"
 void run_foreach_element(int *array, size_t size, void (**func)(void *, int), _Bool destroy_func)
 {
-#line 60 "/home/kiv/projects/c_ext/tests/1.c"
+#line 64 "/home/kiv/projects/c_ext/tests/1.c"
   int i;
   for (i = 0; i < size; ++ i)
-#line 61 "/home/kiv/projects/c_ext/tests/1.c"
+#line 65 "/home/kiv/projects/c_ext/tests/1.c"
   {
-#line 61 "/home/kiv/projects/c_ext/tests/1.c"
+#line 65 "/home/kiv/projects/c_ext/tests/1.c"
     void (**__tmp_closure_0__)(void *, int) = func;
     (* __tmp_closure_0__)(__tmp_closure_0__, array[i]);
   }
 
-#line 64 "/home/kiv/projects/c_ext/tests/1.c"
+#line 68 "/home/kiv/projects/c_ext/tests/1.c"
   if (destroy_func)
-#line 64 "/home/kiv/projects/c_ext/tests/1.c"
+#line 68 "/home/kiv/projects/c_ext/tests/1.c"
   {
     free(func);
   }
 
 }
 
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
 struct __lambda_1_ClosureData
 {
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   void (*__fn)(void *const __closure, int elem);
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   int *sum;
 };
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
 static void __lambda_1(void *const __closure, int elem)
 {
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_1_ClosureData
   {
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
     void (*__fn)(void *const __closure, int elem);
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
     int *sum;
   } *const __closure_data = __closure;
-#line 81 "/home/kiv/projects/c_ext/tests/1.c"
+#line 86 "/home/kiv/projects/c_ext/tests/1.c"
   * __closure_data->sum += elem;
 }
 
-#line 69 "/home/kiv/projects/c_ext/tests/1.c"
+#line 73 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
-#line 70 "/home/kiv/projects/c_ext/tests/1.c"
+#line 74 "/home/kiv/projects/c_ext/tests/1.c"
   B_construct(& b);
   b_ptr->__vtable->print_text(b_ptr, "%s\n", "Hello world!");
+  b_ptr->__vtable->print_text(b_ptr, (void *) 0);
   b_ptr->__vtable->destroy(b_ptr);
   A_test(1);
   void (**print_func)() = make_print_func("Test");
-#line 69 "/home/kiv/projects/c_ext/tests/1.c"
+#line 73 "/home/kiv/projects/c_ext/tests/1.c"
   void (**__tmp_closure_1__)() = print_func;
-#line 75 "/home/kiv/projects/c_ext/tests/1.c"
+#line 80 "/home/kiv/projects/c_ext/tests/1.c"
   (* __tmp_closure_1__)(__tmp_closure_1__);
   free(print_func);
-#line 78 "/home/kiv/projects/c_ext/tests/1.c"
+#line 83 "/home/kiv/projects/c_ext/tests/1.c"
   int nums[] = {1, 2, 3, 4};
   int sum = 0;
-#line 69 "/home/kiv/projects/c_ext/tests/1.c"
+#line 73 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_1_ClosureData *const __lambda_1_data = malloc(sizeof(struct __lambda_1_ClosureData));
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_1_data->__fn = __lambda_1;
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_1_data->sum = & sum;
-#line 80 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   run_foreach_element(nums, 4, (void *) __lambda_1_data, 1);
-#line 83 "/home/kiv/projects/c_ext/tests/1.c"
+#line 88 "/home/kiv/projects/c_ext/tests/1.c"
   printf("Sum = %i\n", sum);
   return 0;
 }

@@ -31,10 +31,6 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         )
         self.tokens = self.clex.tokens
 
-        self.precedence = list(self.precedence)
-        self.precedence.insert(0, ('left', 'DOUBLECOLON'))
-        self.precedence = tuple(self.precedence)
-
         self.OPT_RULES.append('lambda_capture_list')
 
         for rule in self.OPT_RULES:
@@ -113,34 +109,6 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
             p[0] = {'decl': p[1], 'bitsize': None}
         else:
             p[0] = {'decl': p[1], 'bitsize': None, 'init': p[3]}
-
-    def p_identifier(self, p):
-        """ identifier  : TYPEID DOUBLECOLON ID
-                        | ID DOUBLECOLON ID
-                        | ID
-        """
-        if len(p) == 4:
-            p[0] = c_ast.ID((p[1], p[3]), self._coord(p.lineno(1)))
-        else:
-            p[0] = c_ast.ID(p[1], self._coord(p.lineno(1)))
-
-    def p_direct_declarator_1(self, p):
-        """ direct_declarator   : identifier
-        """
-        p[0] = c_ast.TypeDecl(
-            declname=p[1].name,
-            type=None,
-            quals=None,
-            coord=self._coord(p.lineno(1)))
-
-    def p_postfix_expression_4(self, p):
-        """ postfix_expression : postfix_expression PERIOD identifier
-                               | postfix_expression PERIOD TYPEID
-                               | postfix_expression ARROW identifier
-                               | postfix_expression ARROW TYPEID
-        """
-        field = c_ast.ID(p[3], self._coord(p.lineno(3))) if isinstance(p[3], str) else p[3]
-        p[0] = c_ast.StructRef(p[1], p[2], field, p[1].coord)
 
     def p_lambda_capture_item(self, p):
         """ lambda_capture_item : ID
