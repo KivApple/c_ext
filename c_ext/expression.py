@@ -28,7 +28,15 @@ class VariableExpression(Expression):
         var_info = scope.find_symbol(name)
         if isinstance(var_info, VariableInfo):
             if isinstance(var_info.scope.owner, StructTypeInfo):
-                ast_node.name = '%s_%s' % (var_info.scope.owner.name, name)
+                if ('static' in var_info.storage) or isinstance(var_info.type, FuncTypeInfo):
+                    ast_node.name = '%s_%s' % (var_info.scope.owner.name, name)
+                else:
+                    ast_node = c_ast.StructRef(
+                        c_ast.ID('this'),
+                        '->',
+                        c_ast.ID(name),
+                        ast_node.coord
+                    )
             elif isinstance(var_info.scope.owner, LambdaFuncTypeInfo):
                 if 'closure' in var_info.storage:
                     ast_node = c_ast.StructRef(

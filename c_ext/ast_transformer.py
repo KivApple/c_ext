@@ -18,7 +18,6 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.root_scope = None
         self.scheduled_decls = list()
         self.scheduled_tmp_decls = list()
-        self.structs_with_declared_methods = set()
         self.node_path = list()
         self.cur_lambda_id = 0
         self.lambdas = dict()

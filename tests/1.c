@@ -5,6 +5,7 @@
 
 typedef struct A {
     static int i;
+    int j;
     void construct();
     virtual void destroy();
     virtual void print_text(const char *fmt = NULL, ...) = 0;
@@ -20,6 +21,7 @@ int A::i = 0;
 
 void A::construct() {
     i++;
+    j = 0;
     printf("A::construct(i == %i)\n", i);
 }
 
