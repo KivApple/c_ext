@@ -70,8 +70,6 @@ void run_foreach_element(int *array, size_t size, void (**func)(void*, int), boo
     }
 }
 
-//A* f();
-
 int main() {
     b.construct();
     b_ptr->print_text("%s\n", "Hello world!");
@@ -88,8 +86,6 @@ int main() {
         sum += elem;
     });
     printf("Sum = %i\n", sum);
-
-    //f()->print_text();
 
     return 0;
 }

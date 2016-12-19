@@ -64,8 +64,10 @@ class StructTypeInfo(TypeInfo):
     VTABLE_LINK_NAME = '__vtable'
     VTABLE_PARENT_LINK_NAME = '__parent'
     VTABLE_NAME_LINK_NAME = '__name'
+    TEMP_THIS_PTR_NAME_FMT = '__this_%s'
 
     next_id = 0
+    next_temp_this_ptr_id = 0
 
     def __init__(self, kind, name, ast_transformer):
         TypeInfo.__init__(self)
@@ -286,10 +288,29 @@ class StructTypeInfo(TypeInfo):
             if ('static' in symbol.storage) or isinstance(symbol.type, FuncTypeInfo):
                 if 'virtual' in symbol.storage:
                     if node.type == '->':
-                        return c_ast.StructRef(
-                            c_ast.StructRef(node.name, '->', c_ast.ID(self.VTABLE_LINK_NAME)),
-                            '->', c_ast.ID(symbol.name)
-                        )
+                        if not isinstance(node.name, c_ast.ID):
+                            this_ptr_name = self.TEMP_THIS_PTR_NAME_FMT % StructTypeInfo.next_temp_this_ptr_id
+                            StructTypeInfo.next_temp_this_ptr_id += 1
+                            self.ast_transformer.schedule_tmp_decl(c_ast.Decl(
+                                this_ptr_name,
+                                list(), list(), list(),
+                                c_ast.PtrDecl(
+                                    ['const'],
+                                    c_ast.TypeDecl(this_ptr_name, list(), c_ast.Struct(self.name, None))
+                                ),
+                                node.name, None,
+                                node.coord
+                            ))
+                            node.name = c_ast.ID(this_ptr_name)
+                            return c_ast.StructRef(
+                                c_ast.StructRef(c_ast.ID(this_ptr_name), '->', c_ast.ID(self.VTABLE_LINK_NAME)),
+                                '->', c_ast.ID(symbol.name)
+                            )
+                        else:
+                            return c_ast.StructRef(
+                                c_ast.StructRef(node.name, '->', c_ast.ID(self.VTABLE_LINK_NAME)),
+                                '->', c_ast.ID(symbol.name)
+                            )
                 full_name = '%s_%s' % (self.name, member_name)
                 return c_ast.ID(full_name)
         elif self.parent is not None:
@@ -420,6 +441,7 @@ class StructTypeInfo(TypeInfo):
                     if StructTypeInfo.contains_construct_call(arg):
                         return True
         return False
+
 
 class ArrayTypeInfo(TypeInfo):
     def __init__(self, base_type, dim):

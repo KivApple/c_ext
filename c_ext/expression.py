@@ -150,7 +150,9 @@ class MemberExpression(Expression):
         )
         if isinstance(type_info, VariableInfo):
             type_info = type_info.type
-            ast_node = self.struct_type_info.fix_member_access(ast_node)
+            ast_node_ = self.struct_type_info.fix_member_access(ast_node)
+            value.ast_node = ast_node.name
+            ast_node = ast_node_
         else:
             type_info = None
         Expression.__init__(self, type_info, ast_node)
