@@ -142,6 +142,21 @@ You can specify default values for some arguments of a function.
     
     f(5); // b == 10
 
+## Asynchronous programming
+
+Of particular importance is a function that takes a delegate as the last argument.
+For example:
+
+    void readFile(FILE *file, void *buffer, size_t bufferSize, void (**callback)(void*));
+
+If you omit the last argument, the caller function (which must return void) will turn into asynchronous.
+
+    void f(FILE *file) {
+        char buffer[1024];
+        readFile(file, buffer, sizeof(buffer));
+        printf(buffer); // Will be run only after readFile call callback.
+    }
+
 ## Limitations
 
 * If you have declared virtual methods in structure, you must declare constructor.
@@ -152,10 +167,6 @@ You can not use virtual methods before a constructor call.
 * You must explicitly call the parent implementation, if necessary,
 even if it's constructor.
 * Names starting with __ (double underscore) reserved for internal usage.
-
-## Future plans
-
-* Asynchronous programming
 
 ## License
 This program distributed under terms of MIT license.

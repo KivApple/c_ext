@@ -21,6 +21,13 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.node_path = list()
         self.cur_lambda_id = 0
         self.lambdas = dict()
+        self.need_async_call = False
+        self.next_async_func_id = 0
+        self.next_async_state_id = 1
+        self.func_async_states = OrderedDict()
+        self.local_ids = set()
+        self.local_ids_in_cur_async_state = set()
+        self.func_async_state_decls = OrderedDict()
 
     def visit(self, node):
         self.node_path.append(node)
@@ -224,6 +231,16 @@ class ASTTransformer(c_ast.NodeVisitor):
                         self.scope.symbols[node.name].init = init
                     else:
                         pass # Warning
+        if 'static' not in node.storage:
+            tmp = self.scope
+            while tmp is not None:
+                if isinstance(tmp.owner, FuncTypeInfo):
+                    self.local_ids.add(var_info.name)
+                    self.local_ids_in_cur_async_state.add(var_info.name)
+                    break
+                if len(tmp.parents) == 0:
+                    break
+                tmp = tmp.parents[0]
         return var_info
 
     def visit_Typedef(self, node):
@@ -247,6 +264,10 @@ class ASTTransformer(c_ast.NodeVisitor):
                 raise CodeSyntaxError('%s is not a structure name' % node.name[0], node)
             symbol_scope = struct_type_info.scope
             symbol_name = node.name[1]
+        elif symbol_name in self.local_ids:
+            if symbol_name not in self.local_ids_in_cur_async_state:
+                self.func_async_state_decls[symbol_name] = True
+                self.local_ids_in_cur_async_state.add(symbol_name)
         return VariableExpression(symbol_name, symbol_scope, node)
 
     def visit_UnaryOp(self, node):
@@ -282,6 +303,8 @@ class ASTTransformer(c_ast.NodeVisitor):
             for arg in node.args.exprs:
                 args.append(self.visit(arg))
         func = self.visit(node.name)
+        if self.need_async_call:
+            raise CodeSyntaxError('Async call should not be a part of a complex expression', node.coord)
         return CallExpression(func, args, node, self)
 
     def visit_Assignment(self, node):
@@ -303,6 +326,25 @@ class ASTTransformer(c_ast.NodeVisitor):
                     node.block_items.insert(i, decl)
                     i += 1
                 self.scheduled_tmp_decls.clear()
+                if self.need_async_call:
+                    if i < (len(node.block_items) - 1):
+                        async_state_label_name = '__async_state_%i' % self.next_async_state_id
+                        self.func_async_states[self.next_async_state_id] = async_state_label_name
+                        node.block_items.insert(i + 1, c_ast.Return(None, node.block_items[i].coord))
+                        node.block_items.insert(i + 2, c_ast.Label(async_state_label_name, None,
+                                                                   node.block_items[i].coord))
+                    node.block_items.insert(i, c_ast.Assignment(
+                        '=',
+                        c_ast.StructRef(
+                            c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME), '->', c_ast.ID('__state')
+                        ),
+                        c_ast.Constant('int', str(self.next_async_state_id)),
+                        node.block_items[i].coord
+                    ))
+                    i += 1
+                    self.next_async_state_id += 1
+                    self.need_async_call = False
+                    self.local_ids_in_cur_async_state.clear()
                 i += 1
             self.scope = prev_scope
 
@@ -363,6 +405,9 @@ class ASTTransformer(c_ast.NodeVisitor):
         for arg in var_info.type.args:
             if arg is not None:
                 self.scope.add_symbol(arg.name, VariableInfo(arg.name, arg.type_info, list(), self.scope))
+        self.local_ids.clear()
+        self.local_ids_in_cur_async_state.clear()
+        self.func_async_state_decls.clear()
         if isinstance(name_, tuple):
             assert len(name_) == 2
             type_info = self.scope.find_symbol('struct %s' % name_[0])
@@ -378,7 +423,130 @@ class ASTTransformer(c_ast.NodeVisitor):
                 if capture_item.link:
                     symbol.attrs.add('link')
                 self.scope.add_symbol(symbol.name, symbol)
+        self.func_async_states.clear()
         self.visit(node.body)
+        if len(self.func_async_states) > 0:
+            args_names = list()
+            if node.decl.type.args is not None:
+                for arg_decl in node.decl.type.args.params:
+                    if isinstance(arg_decl, c_ast.EllipsisParam):
+                        raise CodeSyntaxError('Async functions cannot be variadic', node)
+                    elif isinstance(arg_decl, c_ast.Decl):
+                        self.func_async_state_decls[arg_decl.name] = arg_decl
+                        args_names.append(arg_decl.name)
+            decl = node.decl
+            func_body_name = '__async_func_%s' % self.cur_lambda_id
+            self.schedule_decl(decl, True)
+            self.schedule_decl(c_ast.FuncDef(
+                decl, None,
+                c_ast.Compound([
+                    c_ast.Decl(
+                        LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
+                        list(), list(), list(),
+                        c_ast.PtrDecl(
+                            list(),
+                            c_ast.TypeDecl(
+                                LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
+                                list(),
+                                c_ast.Struct(
+                                    LambdaFuncTypeInfo.CLOSURE_DATA_TYPE_NAME_FMT % func_body_name,
+                                    None
+                                )
+                            )
+                        ),
+                        c_ast.FuncCall(
+                            c_ast.ID('malloc'),
+                            c_ast.ExprList([
+                                c_ast.UnaryOp('sizeof', c_ast.Struct(
+                                    LambdaFuncTypeInfo.CLOSURE_DATA_TYPE_NAME_FMT % func_body_name,
+                                    None
+                                ))
+                            ])
+                        ),
+                        None
+                    ),
+                    c_ast.Assignment(
+                        '=',
+                        c_ast.StructRef(c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME),
+                                        '->', c_ast.ID('__state')),
+                        c_ast.Constant('int', '0')
+                    )
+                ] +
+                [c_ast.Assignment(
+                    '=',
+                    c_ast.StructRef(c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME),
+                                    '->', c_ast.ID(arg_name)),
+                    c_ast.ID(arg_name)
+                ) for arg_name in args_names] +
+                [
+                    c_ast.FuncCall(
+                        c_ast.ID(func_body_name),
+                        c_ast.ExprList([
+                            c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME)
+                        ])
+                    )
+                ]),
+                decl.coord
+            ))
+            node.decl = c_ast.Decl(
+                func_body_name,
+                list(), ['static'], list(),
+                c_ast.FuncDecl(
+                    c_ast.ParamList([
+                        c_ast.Decl(
+                            LambdaFuncTypeInfo.CLOSURE_LINK_NAME,
+                            list(), list(), list(),
+                            c_ast.PtrDecl(
+                                ['const'],
+                                c_ast.TypeDecl(
+                                    LambdaFuncTypeInfo.CLOSURE_LINK_NAME,
+                                    list(),
+                                    c_ast.IdentifierType(['void'])
+                                )
+                            ),
+                            None, None
+                        )
+                    ]),
+                    c_ast.TypeDecl(
+                        func_body_name,
+                        list(),
+                        c_ast.IdentifierType(['void'])
+                    )
+                ),
+                None, None,
+                decl.coord
+            )
+            node.body.block_items.insert(0, self.make_async_state_switch())
+            self.schedule_decl(c_ast.Decl(
+                None, list(), list(), list(),
+                c_ast.Struct(
+                    LambdaFuncTypeInfo.CLOSURE_DATA_TYPE_NAME_FMT % func_body_name,
+                    self.make_async_state_struct_fields_list()
+                ),
+                None, None,
+                node.coord
+            ), True)
+            node.body.block_items.insert(0, c_ast.Decl(
+                LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
+                list(), list(), list(),
+                c_ast.PtrDecl(
+                    ['const'],
+                    c_ast.TypeDecl(
+                        LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
+                        list(),
+                        c_ast.Struct(
+                            LambdaFuncTypeInfo.CLOSURE_DATA_TYPE_NAME_FMT % func_body_name,
+                            None
+                        )
+                    )
+                ),
+                c_ast.ID(LambdaFuncTypeInfo.CLOSURE_LINK_NAME),
+                None
+            ))
+            self.cur_lambda_id += 1
+        self.func_async_state_decls.clear()
+        self.local_ids_in_cur_async_state.clear()
+        self.local_ids.clear()
         self.scope = prev_scope
 
     def visit_LambdaFunc(self, node):
@@ -413,3 +581,132 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def schedule_tmp_decl(self, decl):
         self.scheduled_tmp_decls.append(decl)
+
+    def make_async_state_switch(self):
+        switch_node = c_ast.Switch(
+            c_ast.StructRef(c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME), '->', c_ast.ID('__state')),
+            c_ast.Compound(list())
+        )
+        switch_node.stmt.block_items.append(
+            c_ast.Case(
+                c_ast.Constant('int', '0'),
+                [c_ast.Break()]
+            )
+        )
+        for id, label in iteritems(self.func_async_states):
+            switch_node.stmt.block_items.append(
+                c_ast.Case(
+                    c_ast.Constant('int', str(id)),
+                    [c_ast.Goto(label)]
+                )
+            )
+        switch_node.stmt.block_items.append(
+            c_ast.Default(
+                [c_ast.Return(None)]
+            )
+        )
+        return switch_node
+
+    def make_async_state_struct_fields_list(self):
+        state_struct_fields = list()
+        state_struct_fields.append(c_ast.Decl(
+            LambdaFuncTypeInfo.CLOSURE_FUNC_LINK_NAME,
+            list(), list(), list(),
+            c_ast.PtrDecl(
+                list(),
+                c_ast.TypeDecl(
+                    LambdaFuncTypeInfo.CLOSURE_FUNC_LINK_NAME,
+                    list(),
+                    c_ast.IdentifierType(['void'])
+                )
+            ),
+            None, None
+        ))
+        state_struct_fields.append(c_ast.Decl(
+            '__state',
+            list(), list(), list(),
+            c_ast.TypeDecl(
+                '__state',
+                list(),
+                c_ast.IdentifierType(['int'])
+            ),
+            None, None
+        ))
+        self.fix_async_func(self.node_path[-1])
+        for field_name, field_decl in iteritems(self.func_async_state_decls):
+            if isinstance(field_decl, c_ast.Decl):
+                state_struct_fields.append(field_decl)
+        return state_struct_fields
+
+    def fix_async_func(self, node):
+        if isinstance(node, c_ast.FuncDef):
+            node.body = self.fix_async_func(node.body)
+        elif isinstance(node, c_ast.Decl):
+            node.init = self.fix_async_func(node.init)
+            if node.name in self.func_async_state_decls:
+                init = node.init
+                node.init = None
+                self.func_async_state_decls[node.name] = node
+                if init is not None:
+                    return c_ast.Assignment(
+                        '=',
+                        c_ast.StructRef(
+                            c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME), '->',
+                            c_ast.ID(node.name)
+                        ),
+                        init,
+                        node.coord
+                    )
+                return None
+        elif isinstance(node, c_ast.BinaryOp):
+            node.left = self.fix_async_func(node.left)
+            node.right = self.fix_async_func(node.right)
+            return node
+        elif isinstance(node, c_ast.UnaryOp):
+            node.expr = self.fix_async_func(node.expr)
+        elif isinstance(node, c_ast.Assignment):
+            node.lvalue = self.fix_async_func(node.lvalue)
+            node.rvalue = self.fix_async_func(node.rvalue)
+        elif isinstance(node, c_ast.FuncCall):
+            node.name = self.fix_async_func(node.name)
+            node.args = self.fix_async_func(node.args)
+        elif isinstance(node, c_ast.ExprList):
+            i = 0
+            while i < len(node.exprs):
+                node.exprs[i] = self.fix_async_func(node.exprs[i])
+                i += 1
+        elif isinstance(node, c_ast.If):
+            node.cond = self.fix_async_func(node.cond)
+            node.iftrue = self.fix_async_func(node.iftrue)
+            node.iffalse = self.fix_async_func(node.iffalse)
+        elif isinstance(node, c_ast.While):
+            node.cond = self.fix_async_func(node.cond)
+            node.stmt = self.fix_async_func(node.stmt)
+        elif isinstance(node, c_ast.DoWhile):
+            node.cond = self.fix_async_func(node.cond)
+            node.stmt = self.fix_async_func(node.stmt)
+        elif isinstance(node, c_ast.For):
+            node.init = self.fix_async_func(node.init)
+            node.cond = self.fix_async_func(node.cond)
+            node.next = self.fix_async_func(node.next)
+            node.stmt = self.fix_async_func(node.stmt)
+        elif isinstance(node, c_ast.Switch):
+            node.cond = self.fix_async_func(node.cond)
+            node.stmt = self.fix_async_func(node.stmt)
+        elif isinstance(node, c_ast.Compound):
+            i = 0
+            while i < len(node.block_items):
+                node.block_items[i] = self.fix_async_func(node.block_items[i])
+                i += 1
+        elif isinstance(node, c_ast.ArrayRef):
+            node.name = self.fix_async_func(node.name)
+            node.subscript = self.fix_async_func(node.subscript)
+        elif isinstance(node, c_ast.StructRef):
+            node.name = self.fix_async_func(node.name)
+        elif isinstance(node, c_ast.ID):
+            if node.name in self.func_async_state_decls:
+                return c_ast.StructRef(
+                    c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME), '->',
+                    c_ast.ID(node.name)
+                )
+        return node

@@ -148,21 +148,23 @@ class MemberExpression(Expression):
         ast_node.name = value.ast_node
         type_info = self.value.type_info
         if type == '->':
-            assert isinstance(type_info, PtrTypeInfo)
-            type_info = type_info.base_type
-        assert isinstance(type_info, StructTypeInfo)
+            if isinstance(type_info, PtrTypeInfo):
+                type_info = type_info.base_type
+            else:
+                type_info = None
         self.struct_type_info = type_info
-        assert type_info.scope is not None
-        type_info = type_info.scope.find_symbol(
-            member_name[-1] if isinstance(member_name, tuple) else member_name, True
-        )
-        if isinstance(type_info, VariableInfo):
-            type_info = type_info.type
-            ast_node_ = self.struct_type_info.fix_member_access(ast_node)
-            value.ast_node = ast_node.name
-            ast_node = ast_node_
-        else:
-            type_info = None
+        if isinstance(type_info, StructTypeInfo):
+            assert type_info.scope is not None
+            type_info = type_info.scope.find_symbol(
+                member_name[-1] if isinstance(member_name, tuple) else member_name, True
+            )
+            if isinstance(type_info, VariableInfo):
+                type_info = type_info.type
+                ast_node_ = self.struct_type_info.fix_member_access(ast_node)
+                value.ast_node = ast_node.name
+                ast_node = ast_node_
+            else:
+                type_info = None
         Expression.__init__(self, type_info, ast_node)
 
     def __str__(self):
@@ -248,6 +250,24 @@ class CallExpression(Expression):
                 else:
                     break
                 i += 1
+            if i == len(type_info.args) - 1:
+                if isinstance(type_info.return_type, ScalarTypeInfo) and type_info.return_type.name == 'void':
+                    last_arg = type_info.args[i]
+                    if isinstance(last_arg, FuncArgInfo):
+                        if isinstance(last_arg.type_info, PtrTypeInfo):
+                            if isinstance(last_arg.type_info.base_type, PtrTypeInfo):
+                                if isinstance(last_arg.type_info.base_type.base_type, FuncTypeInfo):
+                                    if len(last_arg.type_info.base_type.base_type.args) == 1:
+                                        callback_arg = last_arg.type_info.base_type.base_type.args[0]
+                                        if isinstance(callback_arg.type_info, PtrTypeInfo):
+                                            if isinstance(callback_arg.type_info.base_type, ScalarTypeInfo):
+                                                if callback_arg.type_info.base_type.name == 'void':
+                                                    if ast_node.args is None:
+                                                        ast_node.args = c_ast.ExprList(list())
+                                                    ast_node.args.exprs.append(
+                                                        c_ast.ID(LambdaFuncTypeInfo.CLOSURE_LINK_NAME)
+                                                    )
+                                                    ast_transformer.need_async_call = True
             Expression.__init__(self, type_info.return_type, ast_node)
         else:
             Expression.__init__(self, None, ast_node)

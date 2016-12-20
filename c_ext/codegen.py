@@ -141,6 +141,8 @@ class CodeGenerator(GnuCGenerator):
     def emit_line_number(self, n):
         if not self.emit_line_numbers:
             return ''
+        if n is None:
+            return ''
         if (n.coord.line != self.cur_line_number) or (n.coord.file != self.cur_filename):
             self.cur_filename = n.coord.file
             self.cur_line_number = n.coord.line

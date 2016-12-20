@@ -72,6 +72,17 @@ void run_foreach_element(int *array, size_t size, void (**func)(void*, int), boo
     }
 }
 
+void f(void (**callback)(void*)) {
+    callback();
+}
+
+void g(int i) {
+    int j = 0;
+    f();
+    j++;
+    f();
+}
+
 int main() {
     b.construct();
     b_ptr->print_text("%s\n", "Hello world!");
