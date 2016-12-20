@@ -269,6 +269,14 @@ class ASTTransformer(c_ast.NodeVisitor):
             if symbol_name not in self.local_ids_in_cur_async_state:
                 self.func_async_state_decls[symbol_name] = True
                 self.local_ids_in_cur_async_state.add(symbol_name)
+            elif symbol_name not in self.scope.symbols:
+                tmp = self.scope
+                while (tmp is not None) and not isinstance(tmp.owner, c_ast.FuncDef):
+                    if isinstance(tmp.owner, (c_ast.While, c_ast.DoWhile, c_ast.For)):
+                        self.func_async_state_decls[symbol_name] = True
+                        self.local_ids_in_cur_async_state.add(symbol_name)
+                        break
+                    tmp = tmp.parents[-1]
         return VariableExpression(symbol_name, symbol_scope, node)
 
     def visit_UnaryOp(self, node):
@@ -318,6 +326,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             prev_scope = self.scope
             self.scope = Scope(self.scope)
             self.scope.attrs = prev_scope.attrs
+            self.scope.owner = self.node_path[-2]
             i = 0
             while i < len(node.block_items):
                 retval = self.visit(node.block_items[i])
@@ -328,14 +337,13 @@ class ASTTransformer(c_ast.NodeVisitor):
                     i += 1
                 self.scheduled_tmp_decls.clear()
                 if self.need_async_call:
-                    if i < (len(node.block_items) - 1):
-                        async_state_label_name = '__async_state_%i' % self.next_async_state_id
-                        self.func_async_states[self.next_async_state_id] = async_state_label_name
-                        return_node = c_ast.Return(None, node.block_items[i].coord)
-                        self.async_returns.append(return_node)
-                        node.block_items.insert(i + 1, return_node)
-                        node.block_items.insert(i + 2, c_ast.Label(async_state_label_name, None,
-                                                                   node.block_items[i].coord))
+                    async_state_label_name = '__async_state_%i' % self.next_async_state_id
+                    self.func_async_states[self.next_async_state_id] = async_state_label_name
+                    return_node = c_ast.Return(None, node.block_items[i].coord)
+                    self.async_returns.append(return_node)
+                    node.block_items.insert(i + 1, return_node)
+                    node.block_items.insert(i + 2, c_ast.Label(async_state_label_name, None,
+                        node.block_items[i].coord))
                     node.block_items.insert(i, c_ast.Assignment(
                         '=',
                         c_ast.StructRef(

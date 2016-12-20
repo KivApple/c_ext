@@ -78,8 +78,10 @@ void f(void (**callback)(void*)) {
 
 void g(int i) {
     int j = 0;
-    f();
-    j++;
+    while (j < 10) {
+        j++;
+        //f();
+    }
     f();
 }
 

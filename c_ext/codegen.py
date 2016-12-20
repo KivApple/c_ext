@@ -112,7 +112,10 @@ class CodeGenerator(GnuCGenerator):
         return s
 
     def visit_Label(self, n):
-        s = n.name + ':\n' + self._generate_stmt(n.stmt)
+        if n.stmt is None:
+            s = n.name + ': ;\n'
+        else:
+            s = n.name + ':\n' + self._generate_stmt(n.stmt)
         self.cur_line_number += 1
         return s
 

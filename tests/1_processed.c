@@ -1111,20 +1111,21 @@ static void __async_func_1(void *const __closure)
 
 #line 80 "/home/kiv/projects/c_ext/tests/1.c"
   __closure_data->j = 0;
-  __closure_data->__state = 1;
+  while (__closure_data->j < 10)
 #line 81 "/home/kiv/projects/c_ext/tests/1.c"
-  f(__closure);
-#line 81 "/home/kiv/projects/c_ext/tests/1.c"
-  return;
-#line 81 "/home/kiv/projects/c_ext/tests/1.c"
-  __async_state_1:
-  
+  {
+    __closure_data->j++;
+  }
 
-#line 82 "/home/kiv/projects/c_ext/tests/1.c"
-  __closure_data->j++;
-  __closure_data->__state = 2;
-#line 83 "/home/kiv/projects/c_ext/tests/1.c"
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
+  __closure_data->__state = 1;
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
   f(__closure);
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
+  return;
+#line 85 "/home/kiv/projects/c_ext/tests/1.c"
+  __async_state_1: ;
+
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"
   __exit:
   free(__closure_data);
@@ -1144,58 +1145,58 @@ void g(int i)
   __async_func_1(__closure_data);
 }
 
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
 struct __lambda_2_ClosureData
 {
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
   void (*__fn)(void *const __closure, int elem);
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
   int *sum;
 };
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
 static void __lambda_2(void *const __closure, int elem)
 {
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_2_ClosureData
   {
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
     void (*__fn)(void *const __closure, int elem);
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
     int *sum;
   } *const __closure_data = __closure;
-#line 99 "/home/kiv/projects/c_ext/tests/1.c"
+#line 101 "/home/kiv/projects/c_ext/tests/1.c"
   * __closure_data->sum += elem;
 }
 
-#line 86 "/home/kiv/projects/c_ext/tests/1.c"
+#line 88 "/home/kiv/projects/c_ext/tests/1.c"
 int main()
 {
-#line 87 "/home/kiv/projects/c_ext/tests/1.c"
+#line 89 "/home/kiv/projects/c_ext/tests/1.c"
   B_construct(& b);
   b_ptr->__vtable->print_text(b_ptr, "%s\n", "Hello world!");
   b_ptr->__vtable->print_text(b_ptr, (void *) 0);
   b_ptr->__vtable->destroy(b_ptr);
   A_test(1);
   void (**print_func)() = make_print_func("Test");
-#line 86 "/home/kiv/projects/c_ext/tests/1.c"
+#line 88 "/home/kiv/projects/c_ext/tests/1.c"
   void (**__tmp_closure_2__)() = print_func;
-#line 93 "/home/kiv/projects/c_ext/tests/1.c"
+#line 95 "/home/kiv/projects/c_ext/tests/1.c"
   (* __tmp_closure_2__)(__tmp_closure_2__);
   free(print_func);
-#line 96 "/home/kiv/projects/c_ext/tests/1.c"
+#line 98 "/home/kiv/projects/c_ext/tests/1.c"
   int nums[] = {1, 2, 3, 4};
   int sum = 0;
-#line 86 "/home/kiv/projects/c_ext/tests/1.c"
+#line 88 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_2_ClosureData *const __lambda_2_data = malloc(sizeof(struct __lambda_2_ClosureData));
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_2_data->__fn = __lambda_2;
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_2_data->sum = & sum;
-#line 98 "/home/kiv/projects/c_ext/tests/1.c"
+#line 100 "/home/kiv/projects/c_ext/tests/1.c"
   run_foreach_element(nums, 4, (void *) __lambda_2_data, 1);
-#line 101 "/home/kiv/projects/c_ext/tests/1.c"
-  printf("Sum = %i\n", sum);
 #line 103 "/home/kiv/projects/c_ext/tests/1.c"
+  printf("Sum = %i\n", sum);
+#line 105 "/home/kiv/projects/c_ext/tests/1.c"
   return 0;
 }
 
