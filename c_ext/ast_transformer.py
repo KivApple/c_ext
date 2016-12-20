@@ -434,10 +434,14 @@ class ASTTransformer(c_ast.NodeVisitor):
             if node.decl.type.args is not None:
                 for arg_decl in node.decl.type.args.params:
                     if isinstance(arg_decl, c_ast.EllipsisParam):
-                        raise CodeSyntaxError('Async functions cannot be variadic', node)
+                        raise CodeSyntaxError('Async functions cannot be variadic', node.coord)
                     elif isinstance(arg_decl, c_ast.Decl):
                         self.func_async_state_decls[arg_decl.name] = arg_decl
                         args_names.append(arg_decl.name)
+            if not isinstance(node.decl.type.type, c_ast.TypeDecl)\
+                or not isinstance(node.decl.type.type.type, c_ast.IdentifierType)\
+                or ' '.join(node.decl.type.type.type.names) != 'void':
+                raise CodeSyntaxError('Async functions cannot return value', node.coord)
             decl = node.decl
             func_body_name = '__async_func_%s' % self.cur_lambda_id
             self.schedule_decl(decl, True)
