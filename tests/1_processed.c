@@ -1105,7 +1105,7 @@ static void __async_func_1(void *const __closure)
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"
     default:
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"
-      return;
+      goto __exit;
 
   }
 
@@ -1125,6 +1125,10 @@ static void __async_func_1(void *const __closure)
   __closure_data->__state = 2;
 #line 83 "/home/kiv/projects/c_ext/tests/1.c"
   f(__closure);
+#line 79 "/home/kiv/projects/c_ext/tests/1.c"
+  __exit:
+  free(__closure_data);
+
 }
 
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"

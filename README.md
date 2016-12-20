@@ -157,6 +157,9 @@ If you omit the last argument, the caller function (which must return void) will
         printf(buffer); // Will be run only after readFile call callback.
     }
 
+Memory for asynchronous function state will be allocated via malloc on function call
+and freed on it return.
+
 ## Limitations
 
 * If you have declared virtual methods in structure, you must declare constructor.

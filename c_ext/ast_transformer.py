@@ -28,6 +28,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.local_ids = set()
         self.local_ids_in_cur_async_state = set()
         self.func_async_state_decls = OrderedDict()
+        self.async_returns = list()
 
     def visit(self, node):
         self.node_path.append(node)
@@ -330,7 +331,9 @@ class ASTTransformer(c_ast.NodeVisitor):
                     if i < (len(node.block_items) - 1):
                         async_state_label_name = '__async_state_%i' % self.next_async_state_id
                         self.func_async_states[self.next_async_state_id] = async_state_label_name
-                        node.block_items.insert(i + 1, c_ast.Return(None, node.block_items[i].coord))
+                        return_node = c_ast.Return(None, node.block_items[i].coord)
+                        self.async_returns.append(return_node)
+                        node.block_items.insert(i + 1, return_node)
                         node.block_items.insert(i + 2, c_ast.Label(async_state_label_name, None,
                                                                    node.block_items[i].coord))
                     node.block_items.insert(i, c_ast.Assignment(
@@ -424,6 +427,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     symbol.attrs.add('link')
                 self.scope.add_symbol(symbol.name, symbol)
         self.func_async_states.clear()
+        self.async_returns.clear()
         self.visit(node.body)
         if len(self.func_async_states) > 0:
             args_names = list()
@@ -543,7 +547,17 @@ class ASTTransformer(c_ast.NodeVisitor):
                 c_ast.ID(LambdaFuncTypeInfo.CLOSURE_LINK_NAME),
                 None
             ))
+            node.body.block_items.append(c_ast.Label(
+                '__exit',
+                c_ast.FuncCall(
+                    c_ast.ID('free'),
+                    c_ast.ExprList([
+                        c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME)
+                    ])
+                )
+            ))
             self.cur_lambda_id += 1
+        self.async_returns.clear()
         self.func_async_state_decls.clear()
         self.local_ids_in_cur_async_state.clear()
         self.local_ids.clear()
@@ -602,7 +616,7 @@ class ASTTransformer(c_ast.NodeVisitor):
             )
         switch_node.stmt.block_items.append(
             c_ast.Default(
-                [c_ast.Return(None)]
+                [c_ast.Goto('__exit')]
             )
         )
         return switch_node
@@ -709,4 +723,9 @@ class ASTTransformer(c_ast.NodeVisitor):
                     c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME), '->',
                     c_ast.ID(node.name)
                 )
+        elif isinstance(node, c_ast.Return):
+            if node.expr is not None:
+                raise CodeSyntaxError('Async function cannot return value', node.coord)
+            if node not in self.async_returns:
+                return c_ast.Goto('__exit', node.coord)
         return node
