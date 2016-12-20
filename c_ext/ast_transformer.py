@@ -29,6 +29,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.local_ids_in_cur_async_state = set()
         self.func_async_state_decls = OrderedDict()
         self.async_returns = list()
+        self.id_translate_table = dict()
 
     def visit(self, node):
         self.node_path.append(node)
@@ -182,6 +183,19 @@ class ASTTransformer(c_ast.NodeVisitor):
         assert isinstance(node, c_ast.Decl)
         if isinstance(self.scope.owner, StructTypeInfo):
             self.scope.owner.fix_member_declaration(node)
+        elif (len(self.node_path) >= 2) and isinstance(self.node_path[-2], (c_ast.Compound, c_ast.For)):
+            if node.name not in self.scope.symbols:
+                prefix = node.name
+                i = 0
+                while self.scope.find_symbol(node.name) is not None:
+                    i += 1
+                    node.name = '%s_%s' % (prefix, i)
+                if i > 0:
+                    self.id_translate_table[prefix] = node.name
+                    tmp = node.type
+                    while not isinstance(tmp, c_ast.TypeDecl):
+                        tmp = node.type
+                    tmp.declname = node.name
         if isinstance(node.name, tuple):
             assert len(node.name) == 2
             struct_type_info = self.scope.find_symbol("struct %s" % node.name[0])
@@ -255,6 +269,7 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_ID(self, node):
         assert isinstance(node, c_ast.ID)
+        node.name = self.id_translate_table.get(node.name, node.name)
         symbol_scope = self.scope
         symbol_name = node.name
         if isinstance(node.name, tuple):
@@ -418,6 +433,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                 self.scope.add_symbol(arg.name, VariableInfo(arg.name, arg.type_info, list(), self.scope))
         self.local_ids.clear()
         self.local_ids_in_cur_async_state.clear()
+        self.id_translate_table.clear()
         self.func_async_state_decls.clear()
         if isinstance(name_, tuple):
             assert len(name_) == 2
@@ -573,6 +589,7 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.func_async_state_decls.clear()
         self.local_ids_in_cur_async_state.clear()
         self.local_ids.clear()
+        self.id_translate_table.clear()
         self.scope = prev_scope
 
     def visit_LambdaFunc(self, node):

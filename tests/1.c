@@ -79,10 +79,11 @@ void f(void (**callback)(void*)) {
 void g(int i) {
     int j = 0;
     while (j < 10) {
+        int i = j;
         j++;
-        //f();
+        f();
+        i++;
     }
-    f();
 }
 
 int main() {
