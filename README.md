@@ -170,6 +170,7 @@ You can not use virtual methods before a constructor call.
 * You must explicitly call the parent implementation, if necessary,
 even if it's constructor.
 * Names starting with __ (double underscore) reserved for internal usage.
+* Asynchronous functions cannot return value or accept variadic arguments.
 
 ## License
 This program distributed under terms of MIT license.
