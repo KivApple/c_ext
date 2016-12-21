@@ -740,7 +740,10 @@ class ASTTransformer(c_ast.NodeVisitor):
             i = 0
             while i < len(node.block_items):
                 node.block_items[i] = self.fix_async_func(node.block_items[i])
-                i += 1
+                if node.block_items[i] is None:
+                    del node.block_items[i]
+                else:
+                    i += 1
         elif isinstance(node, c_ast.ArrayRef):
             node.name = self.fix_async_func(node.name)
             node.subscript = self.fix_async_func(node.subscript)

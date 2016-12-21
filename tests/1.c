@@ -84,6 +84,7 @@ void g(int i) {
         f();
         i++;
     }
+    f();
 }
 
 int main() {
@@ -105,3 +106,13 @@ int main() {
 
     return 0;
 }
+
+/*
+void readFile(FILE *file, void *buffer, size_t bufferSize, void (**callback)(void*));
+
+void xxx(FILE *file) {
+    char buffer[1024];
+    readFile(file, buffer, sizeof(buffer));
+    printf(buffer); // Will be run only after readFile call callback.
+}
+*/
