@@ -629,26 +629,61 @@ class LambdaFuncTypeInfo(FuncTypeInfo):
                 )
             ] + body
             closure_data_name = self.CLOSURE_DATA_NAME_FMT % self.name
-            self.ast_transformer.schedule_tmp_decl(
-                c_ast.Decl(
-                    closure_data_name,
-                    list(), list(), list(),
-                    c_ast.PtrDecl(
-                        ['const'],
+            if self.ast_node.storage != 'static':
+                self.ast_transformer.schedule_tmp_decl(
+                    c_ast.Decl(
+                        closure_data_name,
+                        list(), list(), list(),
+                        c_ast.PtrDecl(
+                            ['const'],
+                            c_ast.TypeDecl(
+                                closure_data_name,
+                                list(),
+                                c_ast.Struct(closure_data_type_name, None)
+                            )
+                        ),
+                        c_ast.FuncCall(
+                            c_ast.ID('malloc'),
+                            c_ast.ExprList([
+                                c_ast.UnaryOp('sizeof', c_ast.Struct(closure_data_type_name, None))
+                            ])
+                        ), None,
+                        self.ast_node.coord
+                    )
+                )
+            else:
+                closure_data_storage_name = '%s_storage' % closure_data_name
+                self.ast_transformer.schedule_tmp_decl(
+                    c_ast.Decl(
+                        closure_data_storage_name,
+                        list(), list(), list(),
                         c_ast.TypeDecl(
-                            closure_data_name,
+                            closure_data_storage_name,
                             list(),
                             c_ast.Struct(closure_data_type_name, None)
-                        )
-                    ),
-                    c_ast.FuncCall(
-                        c_ast.ID('malloc'),
-                        c_ast.ExprList([
-                            c_ast.UnaryOp('sizeof', c_ast.Struct(closure_data_type_name, None))
-                        ])
-                    ), None
+                        ),
+                        None, None,
+                        self.ast_node.coord
+                    )
                 )
-            )
+                self.ast_transformer.schedule_tmp_decl(
+                    c_ast.Decl(
+                        closure_data_name,
+                        list(), list(), list(),
+                        c_ast.PtrDecl(
+                            ['const'],
+                            c_ast.TypeDecl(
+                                closure_data_name,
+                                list(),
+                                c_ast.Struct(closure_data_type_name, None)
+                            )
+                        ),
+                        c_ast.UnaryOp(
+                            '&', c_ast.ID(closure_data_storage_name)
+                        ), None,
+                        self.ast_node.coord
+                    )
+                )
             self.ast_transformer.schedule_tmp_decl(
                 c_ast.Assignment(
                     '=',

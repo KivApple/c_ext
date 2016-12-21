@@ -32,6 +32,7 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         self.tokens = self.clex.tokens
 
         self.OPT_RULES.append('lambda_capture_list')
+        self.OPT_RULES.append('lambda_storage_spec')
 
         for rule in self.OPT_RULES:
             self._create_opt_rule(rule)
@@ -110,6 +111,11 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         else:
             p[0] = {'decl': p[1], 'bitsize': None, 'init': p[3]}
 
+    def p_lambda_storage_spec(self, p):
+        """ lambda_storage_spec : STATIC
+        """
+        p[0] = p[1]
+
     def p_lambda_capture_item(self, p):
         """ lambda_capture_item : ID
                                 | AND ID
@@ -129,26 +135,28 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
             p[0] = p[1] + [p[3]]
 
     def p_lambda_func(self, p):
-        """ lambda_func : LBRACKET lambda_capture_list_opt RBRACKET LPAREN parameter_type_list_opt RPAREN compound_statement
-                        | LBRACKET lambda_capture_list_opt RBRACKET LPAREN parameter_type_list_opt RPAREN ARROW type_name compound_statement
+        """ lambda_func : lambda_storage_spec_opt LBRACKET lambda_capture_list_opt RBRACKET LPAREN parameter_type_list_opt RPAREN compound_statement
+                        | lambda_storage_spec_opt LBRACKET lambda_capture_list_opt RBRACKET LPAREN parameter_type_list_opt RPAREN ARROW type_name compound_statement
         """
-        if len(p) == 8:
+        if len(p) == 9:
             p[0] = LambdaFunc(
-                p[5],
+                p[6],
                 c_ast.Typename(
                     None, list(),
                     c_ast.TypeDecl(None, list(), c_ast.IdentifierType(['void']))
                 ),
-                p[7],
-                p[2],
+                p[8],
+                p[3],
+                p[1],
                 self._coord(p.lineno(1))
             )
         else:
             p[0] = LambdaFunc(
-                p[5],
-                p[8],
+                p[6],
                 p[9],
-                p[2],
+                p[10],
+                p[3],
+                p[1],
                 self._coord(p.lineno(1))
             )
 
@@ -182,11 +190,12 @@ class StructImproved(c_ast.Struct):
 
 
 class LambdaFunc(c_ast.Node):
-    def __init__(self, args, return_type, body, capture_list, coord=None):
+    def __init__(self, args, return_type, body, capture_list, storage, coord=None):
         self.args = args
         self.return_type = return_type
         self.body = body
         self.capture_list = capture_list
+        self.storage = storage
         self.coord = coord
 
     def children(self):

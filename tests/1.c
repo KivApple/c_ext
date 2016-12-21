@@ -99,9 +99,9 @@ int main() {
 
     int nums[] = { 1, 2, 3, 4 };
     int sum = 0;
-    run_foreach_element(nums, 4, [&sum](int elem) {
+    run_foreach_element(nums, 4, static [&sum](int elem) {
         sum += elem;
-    });
+    }, false);
     printf("Sum = %i\n", sum);
 
     return 0;

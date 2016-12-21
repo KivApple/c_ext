@@ -1032,8 +1032,9 @@ static void __lambda_0(void *const __closure)
 #line 59 "/home/kiv/projects/c_ext/tests/1.c"
 void (**make_print_func(const char *s))()
 {
-#line 59 "/home/kiv/projects/c_ext/tests/1.c"
+#line 60 "/home/kiv/projects/c_ext/tests/1.c"
   struct __lambda_0_ClosureData *const __lambda_0_data = malloc(sizeof(struct __lambda_0_ClosureData));
+#line 60 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_0_data->__fn = __lambda_0;
 #line 60 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_0_data->s = s;
@@ -1204,87 +1205,18 @@ int main()
 #line 100 "/home/kiv/projects/c_ext/tests/1.c"
   int nums[] = {1, 2, 3, 4};
   int sum = 0;
-#line 90 "/home/kiv/projects/c_ext/tests/1.c"
-  struct __lambda_2_ClosureData *const __lambda_2_data = malloc(sizeof(struct __lambda_2_ClosureData));
+  struct __lambda_2_ClosureData __lambda_2_data_storage;
+#line 102 "/home/kiv/projects/c_ext/tests/1.c"
+  struct __lambda_2_ClosureData *const __lambda_2_data = & __lambda_2_data_storage;
 #line 102 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_2_data->__fn = __lambda_2;
 #line 102 "/home/kiv/projects/c_ext/tests/1.c"
   __lambda_2_data->sum = & sum;
 #line 102 "/home/kiv/projects/c_ext/tests/1.c"
-  run_foreach_element(nums, 4, (void *) __lambda_2_data, 1);
+  run_foreach_element(nums, 4, (void *) __lambda_2_data, 0);
 #line 105 "/home/kiv/projects/c_ext/tests/1.c"
   printf("Sum = %i\n", sum);
 #line 107 "/home/kiv/projects/c_ext/tests/1.c"
   return 0;
-}
-
-void readFile(FILE *file, void *buffer, size_t bufferSize, void (**callback)(void *));
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-void xxx(FILE *file);
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-struct __async_func_3_ClosureData
-{
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  void *__fn;
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  int __state;
-  char buffer[1024];
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  FILE *file;
-};
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-static void __async_func_3(void *const __closure)
-{
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  struct __async_func_3_ClosureData *const __closure_data = __closure;
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  switch (__closure_data->__state)
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  {
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-    case 0:
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-      break;
-
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-    case 3:
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-      goto __async_state_3;
-
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-    default:
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-      goto __exit;
-
-  }
-
-#line 114 "/home/kiv/projects/c_ext/tests/1.c"
-  __closure_data->__state = 3;
-#line 114 "/home/kiv/projects/c_ext/tests/1.c"
-  readFile(__closure_data->file, __closure_data->buffer, sizeof(__closure_data->buffer), __closure);
-#line 114 "/home/kiv/projects/c_ext/tests/1.c"
-  return;
-#line 114 "/home/kiv/projects/c_ext/tests/1.c"
-  __async_state_3: ;
-
-#line 115 "/home/kiv/projects/c_ext/tests/1.c"
-  printf(__closure_data->buffer);
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  __exit:
-  free(__closure_data);
-
-}
-
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-void xxx(FILE *file)
-{
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  struct __async_func_3_ClosureData *__closure_data = malloc(sizeof(struct __async_func_3_ClosureData));
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  __closure_data->__state = 0;
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  __closure_data->file = file;
-#line 112 "/home/kiv/projects/c_ext/tests/1.c"
-  __async_func_3(__closure_data);
 }
 

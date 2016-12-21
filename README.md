@@ -134,6 +134,17 @@ when the delegate is no longer needed.
     int c = inc_second_and_sum();
     free(inc_second_and_sum);
 
+Also you can declare lambda as static:
+
+    int a, b;
+    int (**inc_second_and_sum)(void*, int, int) = static [a, &b]() -> int {
+        b++;
+        return a + b;
+    }
+
+In this case storage for closure will be allocated from current stack and will be valid
+only in current context. Also you shouldn't free this lambda via free() call.
+
 ## Default values for function arguments
 
 You can specify default values for some arguments of a function.
