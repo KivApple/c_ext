@@ -76,7 +76,7 @@ void f(void (**callback)(void*)) {
     callback();
 }
 
-void g(int i) {
+void __attribute__((static_async_state)) g(int i) {
     int j = 0;
     while (j < 10) {
         int i = j;

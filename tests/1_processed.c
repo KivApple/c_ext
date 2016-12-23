@@ -1147,7 +1147,7 @@ static void __async_func_1(void *const __closure)
 
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"
   __exit:
-  free(__closure_data);
+  return;
 
 }
 
@@ -1155,7 +1155,9 @@ static void __async_func_1(void *const __closure)
 void g(int i)
 {
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"
-  struct __async_func_1_ClosureData *__closure_data = malloc(sizeof(struct __async_func_1_ClosureData));
+  static struct __async_func_1_ClosureData __closure_data_storage;
+#line 79 "/home/kiv/projects/c_ext/tests/1.c"
+  struct __async_func_1_ClosureData *__closure_data = & __closure_data_storage;
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"
   __closure_data->__state = 0;
 #line 79 "/home/kiv/projects/c_ext/tests/1.c"

@@ -171,6 +171,17 @@ If you omit the last argument, the caller function (which must return void) will
 Memory for asynchronous function state will be allocated via malloc on function call
 and freed on it return.
 
+Also you can use static state storage instead of heap.
+
+    __attribute__((static_async_state)) void f(FILE *file) {
+        char buffer[1024];
+        readFile(file, buffer, sizeof(buffer));
+        printf(buffer); // Will be run only after readFile call callback.
+    }
+
+In this case you are responsible for ensuring that asynchronous function was not called
+again before it returns.
+
 ## Limitations
 
 * If you have declared virtual methods in structure, you must declare constructor.

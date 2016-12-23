@@ -3,7 +3,7 @@ from collections import OrderedDict
 from six import iteritems
 
 import pycparser.c_ast as c_ast
-from pycparserext.ext_c_parser import TypeDeclExt, ArrayDeclExt, FuncDeclExt
+from pycparserext.ext_c_parser import TypeDeclExt, ArrayDeclExt, FuncDeclExt, AttributeSpecifier
 
 from .error import CodeSyntaxError
 from .parser import StructImproved, LambdaFunc
@@ -454,6 +454,18 @@ class ASTTransformer(c_ast.NodeVisitor):
         self.async_returns.clear()
         self.visit(node.body)
         if len(self.func_async_states) > 0:
+            i = 0
+            static_async_state_storage = False
+            while i < len(node.decl.funcspec):
+                if isinstance(node.decl.funcspec[i], AttributeSpecifier):
+                    if node.decl.funcspec[i].exprlist is not None:
+                        if len(node.decl.funcspec[i].exprlist.exprs) == 1:
+                            if isinstance(node.decl.funcspec[i].exprlist.exprs[0], c_ast.ID):
+                                if node.decl.funcspec[i].exprlist.exprs[0].name == 'static_async_state':
+                                    static_async_state_storage = True
+                                    del node.decl.funcspec[i]
+                                    break
+                i += 1
             args_names = list()
             if node.decl.type.args is not None:
                 for arg_decl in node.decl.type.args.params:
@@ -469,10 +481,46 @@ class ASTTransformer(c_ast.NodeVisitor):
             decl = node.decl
             func_body_name = '__async_func_%s' % self.cur_lambda_id
             self.schedule_decl(decl, True)
-            self.schedule_decl(c_ast.FuncDef(
-                decl, None,
-                c_ast.Compound([
+            wrapper_func_body = list()
+            if static_async_state_storage:
+                state_storage_name = '%s_storage' % LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME
+                wrapper_func_body += [
                     c_ast.Decl(
+                        state_storage_name,
+                        list(), ['static'], list(),
+                        c_ast.TypeDecl(
+                            state_storage_name,
+                            list(),
+                            c_ast.Struct(
+                                LambdaFuncTypeInfo.CLOSURE_DATA_TYPE_NAME_FMT % func_body_name,
+                                None
+                            )
+                        ),
+                        None, None
+                    ),
+                    c_ast.Decl(
+                        LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
+                        list(), list(), list(),
+                        c_ast.PtrDecl(
+                            list(),
+                            c_ast.TypeDecl(
+                                LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
+                                list(),
+                                c_ast.Struct(
+                                    LambdaFuncTypeInfo.CLOSURE_DATA_TYPE_NAME_FMT % func_body_name,
+                                    None
+                                )
+                            )
+                        ),
+                        c_ast.UnaryOp(
+                            '&',
+                            c_ast.ID(state_storage_name)
+                        ),
+                        None
+                    )
+                ]
+            else:
+                wrapper_func_body.append(c_ast.Decl(
                         LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME,
                         list(), list(), list(),
                         c_ast.PtrDecl(
@@ -496,20 +544,22 @@ class ASTTransformer(c_ast.NodeVisitor):
                             ])
                         ),
                         None
-                    ),
+                    ))
+            wrapper_func_body += \
+                [
                     c_ast.Assignment(
                         '=',
                         c_ast.StructRef(c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME),
                                         '->', c_ast.ID('__state')),
                         c_ast.Constant('int', '0')
                     )
-                ] +
+                ] + \
                 [c_ast.Assignment(
                     '=',
                     c_ast.StructRef(c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME),
                                     '->', c_ast.ID(arg_name)),
                     c_ast.ID(arg_name)
-                ) for arg_name in args_names] +
+                ) for arg_name in args_names] + \
                 [
                     c_ast.FuncCall(
                         c_ast.ID(func_body_name),
@@ -517,7 +567,10 @@ class ASTTransformer(c_ast.NodeVisitor):
                             c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME)
                         ])
                     )
-                ]),
+                ]
+            self.schedule_decl(c_ast.FuncDef(
+                decl, None,
+                c_ast.Compound(wrapper_func_body),
                 decl.coord
             ))
             node.decl = c_ast.Decl(
@@ -582,7 +635,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     c_ast.ExprList([
                         c_ast.ID(LambdaFuncTypeInfo.CLOSURE_DATA_LINK_NAME)
                     ])
-                )
+                ) if not static_async_state_storage else c_ast.Return(None)
             ))
             self.cur_lambda_id += 1
         self.async_returns.clear()
