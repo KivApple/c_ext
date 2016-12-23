@@ -31,7 +31,7 @@ def main():
         retval = os.system(args.preprocessor.format(output=temp_filename, input=input_filename))
         if retval != 0:
             # Preprocessor failed
-            return
+            sys.exit(1)
         input_file = open(temp_filename, 'r')
     else:
         input_file = open(input_filename, 'r')
