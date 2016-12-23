@@ -296,6 +296,18 @@ class ASTTransformer(c_ast.NodeVisitor):
 
     def visit_UnaryOp(self, node):
         assert isinstance(node, c_ast.UnaryOp)
+        if node.op == '&':
+            tmp = node.expr
+            while not isinstance(tmp, c_ast.ID):
+                if isinstance(tmp, c_ast.StructRef):
+                    tmp = tmp.name
+                elif isinstance(tmp, c_ast.ArrayRef):
+                    tmp = tmp.name
+                else:
+                    break
+            if isinstance(tmp, c_ast.ID):
+                self.func_async_state_decls[tmp.name] = True
+                self.local_ids_in_cur_async_state.add(tmp.name)
         return UnaryExpression(node.op, self.visit(node.expr), node)
 
     def visit_BinaryOp(self, node):
