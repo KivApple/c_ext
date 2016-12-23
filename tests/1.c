@@ -81,10 +81,10 @@ void __attribute__((static_async_state)) g(int i) {
     while (j < 10) {
         int i = j;
         j++;
-        f();
+        f(yield);
         i++;
     }
-    f();
+    f(yield);
 }
 
 int main() {

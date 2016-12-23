@@ -10,10 +10,13 @@ class LexerImproved(pycparserext.ext_c_lexer.GnuCLexer):
                  type_lookup_func):
         self.keywords = list(self.keywords)
         self.keywords.append('VIRTUAL')
+        self.keywords.append('YIELD')
         self.keyword_map['virtual'] = 'VIRTUAL'
+        self.keyword_map['yield'] = 'YIELD'
         self.keywords = tuple(self.keywords)
         self.tokens = list(self.tokens)
         self.tokens.append('VIRTUAL')
+        self.tokens.append('YIELD')
         self.tokens = tuple(self.tokens)
         super(LexerImproved, self).__init__(error_func, on_lbrace_func, on_rbrace_func,
                  type_lookup_func)

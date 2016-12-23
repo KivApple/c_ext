@@ -155,16 +155,16 @@ You can specify default values for some arguments of a function.
 
 ## Asynchronous programming
 
-Of particular importance is a function that takes a delegate as the last argument.
+Of particular importance is a function that takes a delegate as one of argument.
 For example:
 
     void readFile(FILE *file, void *buffer, size_t bufferSize, void (**callback)(void*));
 
-If you omit the last argument, the caller function (which must return void) will turn into asynchronous.
+If you pass "yield" keyword in this argument, the caller function (which must return void) will turn into asynchronous.
 
     void f(FILE *file) {
         char buffer[1024];
-        readFile(file, buffer, sizeof(buffer));
+        readFile(file, buffer, sizeof(buffer), yield);
         printf(buffer); // Will be run only after readFile call callback.
     }
 
@@ -175,7 +175,7 @@ Also you can use static state storage instead of heap.
 
     __attribute__((static_async_state)) void f(FILE *file) {
         char buffer[1024];
-        readFile(file, buffer, sizeof(buffer));
+        readFile(file, buffer, sizeof(buffer), yield);
         printf(buffer); // Will be run only after readFile call callback.
     }
 

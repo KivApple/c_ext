@@ -6,7 +6,7 @@ import pycparser.c_ast as c_ast
 from pycparserext.ext_c_parser import TypeDeclExt, ArrayDeclExt, FuncDeclExt, AttributeSpecifier
 
 from .error import CodeSyntaxError
-from .parser import StructImproved, LambdaFunc
+from .parser import StructImproved, LambdaFunc, YieldNode
 from .scope import Scope
 from .types import *
 from .expression import *
@@ -346,6 +346,10 @@ class ASTTransformer(c_ast.NodeVisitor):
     def visit_Assignment(self, node):
         assert isinstance(node, c_ast.Assignment)
         return BinaryExpression(node.op, self.visit(node.lvalue), self.visit(node.rvalue), node)
+
+    def visit_YieldNode(self, node):
+        assert isinstance(node, YieldNode)
+        return YieldExpression(node)
 
     def visit_Compound(self, node):
         assert isinstance(node, c_ast.Compound)

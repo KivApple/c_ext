@@ -165,6 +165,10 @@ class ParserImproved(pycparserext.ext_c_parser.GnuCParser):
         """
         p[0] = p[1]
 
+    def p_primary_expression_7(self, p):
+        """ primary_expression : YIELD """
+        p[0] = YieldNode(self._coord(p.lineno(1)))
+
     def p_parameter_declaration_1(self, p):
         """ parameter_declaration   : declaration_specifiers declarator
                                     | declaration_specifiers declarator EQUALS constant_expression
@@ -207,3 +211,11 @@ class LambdaFunc(c_ast.Node):
         if self.body is not None:
             nodelist.append(('body', self.body))
         return nodelist
+
+
+class YieldNode(c_ast.Node):
+    def __init__(self, coord=None):
+        self.coord = coord
+
+    def children(self):
+        return tuple()

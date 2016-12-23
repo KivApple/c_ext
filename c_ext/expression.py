@@ -230,6 +230,8 @@ class CallExpression(Expression):
                     break
                 if type_info.args[i] is None:
                     break
+                if isinstance(args[i], YieldExpression):
+                    ast_transformer.need_async_call = True
                 dst_arg_type = type_info.args[i].type_info
                 casted = TypeInfo.make_safe_cast(args[i], dst_arg_type)
                 if casted is None:
@@ -250,24 +252,6 @@ class CallExpression(Expression):
                 else:
                     break
                 i += 1
-            if i == len(type_info.args) - 1:
-                if isinstance(type_info.return_type, ScalarTypeInfo) and type_info.return_type.name == 'void':
-                    last_arg = type_info.args[i]
-                    if isinstance(last_arg, FuncArgInfo):
-                        if isinstance(last_arg.type_info, PtrTypeInfo):
-                            if isinstance(last_arg.type_info.base_type, PtrTypeInfo):
-                                if isinstance(last_arg.type_info.base_type.base_type, FuncTypeInfo):
-                                    if len(last_arg.type_info.base_type.base_type.args) == 1:
-                                        callback_arg = last_arg.type_info.base_type.base_type.args[0]
-                                        if isinstance(callback_arg.type_info, PtrTypeInfo):
-                                            if isinstance(callback_arg.type_info.base_type, ScalarTypeInfo):
-                                                if callback_arg.type_info.base_type.name == 'void':
-                                                    if ast_node.args is None:
-                                                        ast_node.args = c_ast.ExprList(list())
-                                                    ast_node.args.exprs.append(
-                                                        c_ast.ID(LambdaFuncTypeInfo.CLOSURE_LINK_NAME)
-                                                    )
-                                                    ast_transformer.need_async_call = True
             Expression.__init__(self, type_info.return_type, ast_node)
         else:
             Expression.__init__(self, None, ast_node)
@@ -279,3 +263,27 @@ class CallExpression(Expression):
 class LambdaFuncExpression(Expression):
     def __init__(self, type_info, ast_node):
         Expression.__init__(self, type_info, ast_node)
+
+
+class YieldExpression(Expression):
+    def __init__(self, ast_node):
+        Expression.__init__(
+            self,
+            PtrTypeInfo(
+                PtrTypeInfo(
+                    FuncTypeInfo(
+                        ScalarTypeInfo('void'),
+                        [
+                            FuncArgInfo(
+                                None,
+                                PtrTypeInfo(
+                                    ScalarTypeInfo('void')
+                                ),
+                                None
+                            )
+                        ]
+                    )
+                )
+            ),
+            c_ast.ID(LambdaFuncTypeInfo.CLOSURE_LINK_NAME, ast_node.coord)
+        )
