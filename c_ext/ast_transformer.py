@@ -194,7 +194,7 @@ class ASTTransformer(c_ast.NodeVisitor):
                     self.id_translate_table[prefix] = node.name
                     tmp = node.type
                     while not isinstance(tmp, c_ast.TypeDecl):
-                        tmp = node.type
+                        tmp = tmp.type
                     tmp.declname = node.name
         if isinstance(node.name, tuple):
             assert len(node.name) == 2
